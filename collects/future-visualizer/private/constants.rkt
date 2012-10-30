@@ -2,6 +2,7 @@
 (provide DEF-WINDOW-WIDTH
          DEF-WINDOW-HEIGHT
          RT-THREAD-ID
+         RT-THREAD-SYM
          MIN-SEG-WIDTH
          STROKE-WIDTH
          MIN-SEG-INNER-WIDTH
@@ -20,11 +21,13 @@
          HEADER-PADDING
          DEFAULT-TIMELINE-WIDTH
          HEADER-HEIGHT
-         TOOLTIP-MARGIN)
+         TOOLTIP-MARGIN
+         NO-FUTURE-PARENT)
 
 (define DEF-WINDOW-WIDTH 1500)
 (define DEF-WINDOW-HEIGHT 1000)
 (define RT-THREAD-ID 0)
+(define RT-THREAD-SYM 'runtime-thread)
 (define MIN-SEG-WIDTH 10)
 (define STROKE-WIDTH 2)
 (define MIN-SEG-INNER-WIDTH (- MIN-SEG-WIDTH STROKE-WIDTH))
@@ -45,3 +48,4 @@
 (define DEFAULT-TIMELINE-WIDTH 1000)
 (define HEADER-HEIGHT 30)
 (define TOOLTIP-MARGIN 5)
+(define NO-FUTURE-PARENT #f)

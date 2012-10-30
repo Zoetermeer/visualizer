@@ -28,20 +28,6 @@
   (point (int (+ (drawable-node-x dnode) (/ (drawable-node-width dnode) 2))) 
          (int (+ (drawable-node-y dnode) (/ (drawable-node-width dnode) 2)))))
 
-;                                                                                  
-;                                                ;;                            ;;  
-;     ;;; ;     ;                                 ;                             ;  
-;    ;   ;;     ;                                 ;                             ;  
-;    ;    ;   ;;;;;;;     ;;;;    ;; ;;;      ;;; ;     ;;;;     ;;  ;;     ;;; ;  
-;    ;          ;        ;    ;    ;;   ;    ;   ;;    ;    ;     ;;;      ;   ;;  
-;     ;;;;      ;             ;    ;    ;   ;     ;         ;     ;       ;     ;  
-;         ;     ;        ;;;;;;    ;    ;   ;     ;    ;;;;;;     ;       ;     ;  
-;         ;     ;       ;     ;    ;    ;   ;     ;   ;     ;     ;       ;     ;  
-;    ;    ;     ;       ;     ;    ;    ;   ;     ;   ;     ;     ;       ;     ;  
-;    ;;   ;     ;       ;    ;;    ;    ;    ;   ;;   ;    ;;     ;        ;   ;;  
-;    ; ;;;       ;;;;    ;;;; ;;  ;;;  ;;;    ;;; ;;   ;;;; ;;   ;;;;;;     ;;; ;; 
-;                                                                                  
-
 ;;draw-tree/standard : node uint uint uint uint uint -> drawable-node
 (define (draw-tree/standard parent x y depth node-width padding)
   (if (empty? (node-children parent)) 
@@ -97,22 +83,9 @@
                                x-extent 
                                (+ y-extent node-width))))))))
 
-                          ;;       ;                 ;;;    
-;   ;;;;;;                    ;                           ;    
-;    ;    ;;                  ;                           ;    
-;    ;     ;    ;;;;      ;;; ;     ;;;       ;;;;        ;    
-;    ;     ;   ;    ;    ;   ;;       ;      ;    ;       ;    
-;    ;    ;         ;   ;     ;       ;           ;       ;    
-;    ;;;;;     ;;;;;;   ;     ;       ;      ;;;;;;       ;    
-;    ;   ;    ;     ;   ;     ;       ;     ;     ;       ;    
-;    ;    ;   ;     ;   ;     ;       ;     ;     ;       ;    
-;    ;     ;  ;    ;;    ;   ;;       ;     ;    ;;       ;    
-;   ;;;    ;;  ;;;; ;;    ;;; ;;   ;;;;;;    ;;;; ;;   ;;;;;;  
-;                                                
-
-;(r * cos(deg), r * sin(deg)) = point on circle given angle and radius r.
-
 (struct attributed-node (node type num-leaves depth children))
+
+;;leaf? : attributed-node -> bool
 (define (leaf? anode) 
   (equal? (attributed-node-type anode) 'leaf))
 
@@ -132,29 +105,6 @@
                          depth 
                          achn))))
 
-
-;(struct drawable-node (node x y width depth children children-xextent children-yextent) #:transparent)
-;;draw-tree/radial : node uint (uint -> uint) uint -> drawable-node
-(define (draw-tree/radial root node-width Bv p depth)  
-  (let* ([atree (build-attr-tree root 0)] 
-         #;[angle-incr (/ Bv (length (attributed-node-children root)))])
-    (for/fold ([angle 0] [chn '()]) ([achild (in-list (attributed-node-children atree))]) 
-      (let* ([Bu (/ (* (attributed-node-num-leaves achild) Bv) 
-                    (attributed-node-num-leaves atree))] 
-             [pa (+ angle 
-                    (/ Bu 2))] 
-             [x (* (p depth) (cos pa))] 
-             [y (* (p depth) (sin pa))]) 
-        (values (+ angle Bu)
-                (cons (drawable-node (attributed-node-node achild) 
-                               x 
-                               y 
-                               node-width 
-                               depth 
-                               '() 
-                               0 
-                               0) chn))))))                   
-      
 ;;tree-layout/private : drawable-node uint uint (listof drawable-node) -> (values uint uint (listof drawable-node))
 (define (tree-layout/private parent xextent yextent nodes) 
   (if (empty? (drawable-node-children parent)) 
@@ -171,31 +121,22 @@
                 h 
                 nodes))
 
+
 ;;draw-tree : node [symbol] [uint] [uint] [uint] -> tree-layout 
 (define (draw-tree root 
-                   #:style [style 'standard]
                    #:node-width [node-width CREATE-GRAPH-NODE-DIAMETER] 
                    #:padding [padding CREATE-GRAPH-PADDING] 
                    #:zoom [zoom-level 1])
   (let* ([scaled-node-w (* node-width zoom-level)] 
          [scaled-padding (* padding zoom-level)] 
-         [layout 
-          (case style 
-            [(standard) (calc-tree-layout (draw-tree/standard root 
-                                                              0 
-                                                              0 
-                                                              0
-                                                              scaled-node-w 
-                                                              scaled-padding) 
-                                          scaled-node-w 
-                                          scaled-padding)]
-            [(radial) (calc-tree-layout (draw-tree/radial root 
-                                                          (λ (i) (* i 50))) 
-                                        scaled-node-w 
-                                        scaled-padding)]
-            [(hv) 0] 
-            [else 
-             (error 'draw-tree "Invalid tree drawing style.")])]) 
+         [layout (calc-tree-layout (draw-tree/standard root 
+                                                       0 
+                                                       0 
+                                                       0
+                                                       scaled-node-w 
+                                                       scaled-padding) 
+                                   scaled-node-w 
+                                   scaled-padding)]) 
     (graph-layout (+ (graph-layout-width layout) scaled-padding) 
                   (+ (graph-layout-height layout) scaled-padding) 
                   (graph-layout-nodes layout))))

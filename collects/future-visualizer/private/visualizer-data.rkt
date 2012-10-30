@@ -4,7 +4,7 @@
          racket/set 
          (only-in racket/vector vector-drop)
          "constants.rkt"
-         "graph-drawing.rkt" 
+         (only-in "graph-drawing.rkt" node) 
          "display.rkt"
          (only-in '#%futures 
                   reset-future-logs-for-tracing! 
@@ -20,6 +20,7 @@
          (struct-out future-timeline)
          (struct-out event)
          (struct-out rtcall-info)
+         (struct-out future-stats)
          timeline-events
          organize-output 
          build-trace 
@@ -129,6 +130,10 @@
     [(start-work start-0-work gc) #t] 
     [else #f]))
 
+;;duration : event -> float
+(define (duration evt)
+  (- (event-end-time evt) (event-start-time evt)))
+
 (define (missing-data? log) 
   (if (findf (λ (e) (equal? (future-event-what (indexed-future-event-fevent e)) 'missing)) log) 
       #t 
@@ -157,6 +162,10 @@
     [(indexed-future-event? evt) (process-id (indexed-future-event-fevent evt))] 
     [(future-event? evt) (future-event-process-id evt)]
     [(gc-info? evt) RT-THREAD-ID]))
+
+;;creation-event : (or event indexed-future-event future-event) -> bool
+(define (creation-event? evt) 
+  (equal? (what evt) 'create))
 
 ;;touch-event? : (or event indexed-future-event future-event) -> symbol
 (define (touch-event? evt) 
@@ -527,30 +536,44 @@
               (set-event-next-targ-future-event! cur-evt targ-evt) 
               (set-event-prev-targ-future-event! targ-evt cur-evt)))) 
         (loop (cdr rest))))))
-      
-;;creation-event : event -> bool
-(define (creation-event? evt) 
-  (equal? (event-type evt) 'create))
 
-;;buid-creation-graph/private : (uint -o-> (listof future-event)) -> (listof node)
-(define (build-creation-graph/private future-timelines evt) 
-  (let* ([fid (event-user-data evt)] 
-         [ftimeline (hash-ref future-timelines fid #f)]) 
-    (if ftimeline 
-        (let ([fevents (filter creation-event? (hash-ref future-timelines fid #f))])
-          (for/list ([cevt (in-list fevents)]) 
-            (node cevt 
-                  (build-creation-graph/private future-timelines cevt)))) 
-        (begin 
-          (eprintf "WARNING: Could not find timeline for future ~a.  Creation tree may be truncated.\n" fid) 
-          '()))))
 
-;;build-creation-graph : (uint -o-> (listof future-event)) -> node
-(define (build-creation-graph future-timelines) 
-  (define roots (filter creation-event? 
-                        (hash-ref future-timelines #f))) 
-  (define root-nodes (for/list ([root (in-list roots)]) 
-                       (node root 
-                             (build-creation-graph/private future-timelines root)))) 
-  (node 'runtime-thread 
-        root-nodes))
+#| GRAPH DRAWING |#
+;Data stored in each graph node (for layout info)
+(struct future-stats (fid nblocks nsyncs nallocs running-time time-working)) 
+
+;;stats : (listof event) -> future-stats
+(define (stats evts) 
+  (define-values (b s a tw endt) 
+    (for/fold ([b 0] [s 0] [a 0] [tw 0.0] [endt 0.0]) ([evt (in-list evts)])
+      (cond 
+        [(runtime-block-event? evt) (values (+ 1 b) s a tw (event-end-time evt))]
+        [(runtime-sync-event? evt)
+         (if (allocation-event? evt) 
+             (values b (+ 1 s) (+ 1 a) tw (event-end-time evt)) 
+             (values b (+ 1 s) a tw (event-end-time evt)))]
+        [(work-event? evt) (values b s a (+ tw (duration evt)) (event-end-time evt))]
+        [else (values b s a tw (event-end-time evt))])))
+  (future-stats (event-future-id (car evts)) b s a (- endt (event-start-time (car evts))) tw))
+
+;;build-creation-graph/private : (fid -o-> (listof event)) uint -> node
+(define (build-creation-graph/private future-timelines fid) 
+  (define ftimeline (hash-ref future-timelines fid #f))
+  (cond
+    [ftimeline 
+     (define fstats (stats ftimeline))
+     (node fstats
+           (for/list ([ce (in-list (filter creation-event? ftimeline))])
+             (build-creation-graph/private future-timelines (event-user-data ce))))]
+    [else 
+     (begin 
+       (eprintf "WARNING: Could not find timeline for future ~a.  Creation tree may be truncated.\n" fid)
+       '())]))
+     
+;;build-creation-graph : (fid -o-> (listof event)) -> node
+(define (build-creation-graph future-timelines)
+  (define top-fids (map (λ (e) (event-user-data e)) 
+                        (filter creation-event? (hash-ref future-timelines NO-FUTURE-PARENT))))
+  (node RT-THREAD-SYM
+        (for/list ([fid (in-list top-fids)]) 
+          (build-creation-graph/private future-timelines fid))))

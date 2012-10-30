@@ -743,9 +743,9 @@
 ;;node-pict : drawable-node -> pict
 (define (node-pict dnode)
   (let* ([ndata (node-data (drawable-node-node dnode))]
-         [ntext (if (equal? ndata 'runtime-thread)
+         [ntext (if (equal? ndata RT-THREAD-SYM) 
                     "RTT"
-                    (format "~a" (event-user-data ndata)))])
+                    (format "~a" (future-stats-fid ndata)))])
     (cc-superimpose (circle-pict (create-graph-node-backcolor)
                                  (create-graph-node-strokecolor)
                                  (drawable-node-width dnode))
