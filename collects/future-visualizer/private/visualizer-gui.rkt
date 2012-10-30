@@ -219,9 +219,19 @@
   
   ;Calculate for and create creation graph pict container
   (define creation-tree-layout (draw-tree (trace-creation-tree the-trace) 
-                                          #:node-width CREATE-GRAPH-NODE-DIAMETER 
+                                          #:dimensions-calc (λ (nd) (values (random 30) 
+                                                                            (random 30))) 
                                           #:padding CREATE-GRAPH-PADDING 
                                           #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
+  
+  ;;REMOVEME: Print nodes for debugging
+  (define fns (flatten-tree (graph-layout-nodes creation-tree-layout)))
+  (for ([n (in-list fns)])
+    (printf "Node: x=~a, y=~a, w=~a, h=~a\n" 
+            (exact->inexact (drawable-node-x n))
+            (exact->inexact (drawable-node-y n))
+            (drawable-node-width n)
+            (drawable-node-height n)))
   
   (define hovered-graph-node #f)
   (define creategraph-panel (new pict-canvas% 

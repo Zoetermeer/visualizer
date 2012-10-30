@@ -127,12 +127,16 @@
     [else
      (error 'find-node-for-coords "Multiple nodes found for coords: ~s ~s, ~s" x y node-l)]))
 
-;;find-fid-for-coords : x y ??(listof (listof nodes)) by depth?? viewable-region -> fid
+;;find-fid-for-coords : x y (listof node) viewable-region -> fid
 (define (find-fid-for-coords x y nodes vregion)
   (define n (find-node-for-coords x y nodes))
-  (if n
-      (event-user-data (node-data (drawable-node-node n)))
-      #f))
+  (cond 
+    [n 
+     (define data (node-data (drawable-node-node n)))
+     (if (future-stats? data)
+         (future-stats-fid data)
+         #f)]
+    [else #f]))
 
 ;;first-seg-for-fid : future-id (listof segments) -> segment
 (define (first-seg-for-fid fid segs)
@@ -746,9 +750,10 @@
          [ntext (if (equal? ndata RT-THREAD-SYM) 
                     "RTT"
                     (format "~a" (future-stats-fid ndata)))])
-    (cc-superimpose (circle-pict (create-graph-node-backcolor)
-                                 (create-graph-node-strokecolor)
-                                 (drawable-node-width dnode))
+    (cc-superimpose (rect-pict (create-graph-node-backcolor)
+                               (create-graph-node-strokecolor)
+                               (drawable-node-width dnode)
+                               (drawable-node-height dnode))
                     (colorize (text ntext) (create-graph-node-forecolor)))))
 
 ;;creation-tree-pict : (listof indexed-future-event) [enni] [enni] [enni] [enni] [enni] [enni] [enni] -> pict
@@ -768,7 +773,7 @@
                             padding
                             CREATE-GRAPH-PADDING))
   (define layout (draw-tree (trace-creation-tree tr)
-                            #:node-width node-diam
+                            ;#:node-width node-diam
                             #:padding graph-padding
                             #:zoom zoom))
   (define vregion (if x
@@ -793,8 +798,8 @@
                                                                 (drawable-node-x n)
                                                                 (drawable-node-y n)
                                                                 (drawable-node-width n)
-                                                                (drawable-node-width n)))
-                                     (graph-layout-nodes layout))
+                                                                (drawable-node-height n)))
+                                     (flatten-tree (graph-layout-nodes layout)))
                              (graph-layout-nodes layout)))
   (define with-arrows
     (let ([arrow-pct (for/fold ([pct base]) ([node (in-list (graph-layout-nodes layout))])
