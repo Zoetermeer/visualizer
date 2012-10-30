@@ -2,7 +2,8 @@
 
 (require racket/list
          racket/contract
-         ;; rackunit
+         (only-in racket/match match-define)
+
          "constants.rkt")
 
 (provide (struct-out point)
@@ -17,7 +18,7 @@
 (define-struct/contract point ([x integer?] [y integer?]) #:transparent)
 (struct node (data children))
 (struct graph-layout (width height nodes) #:transparent)
-(struct drawable-node (node x y width depth children children-xextent children-yextent) #:transparent)
+(struct drawable-node (node x y width height depth children children-xextent children-yextent) #:transparent)
 
 (define (int x) 
   (floor (exact->inexact x)))
@@ -28,60 +29,64 @@
   (point (int (+ (drawable-node-x dnode) (/ (drawable-node-width dnode) 2))) 
          (int (+ (drawable-node-y dnode) (/ (drawable-node-width dnode) 2)))))
 
-;;draw-tree/standard : node uint uint uint uint uint -> drawable-node
-(define (draw-tree/standard parent x y depth node-width padding)
-  (if (empty? (node-children parent)) 
-      (drawable-node parent 
-                     (+ padding x) 
-                     (+ padding y) 
-                     node-width 
-                     depth
-                     '() 
-                     (+ padding x node-width) 
-                     (+ padding y node-width)) 
-      (let ([child-y (+ y node-width)] 
-            [children (node-children parent)] 
-            [parenty (+ y padding)])
-        (if (= 1 (length children)) ;Align parent and child vertically
-            (let ([child (draw-tree/standard (first children)
-                                            x 
-                                            (+ parenty node-width) 
-                                            (add1 depth) 
-                                            node-width 
-                                            padding)]) 
-              (drawable-node parent 
-                             (drawable-node-x child) 
-                             parenty 
-                             node-width 
-                             depth
-                             (list child) 
-                             (drawable-node-children-xextent child) 
-                             (drawable-node-children-yextent child)))
-            (let-values ([(x-extent 
-                           y-extent
-                           children) 
-                          (for/fold ([xacc x] [yacc y] [chn '()]) 
-                            ([child (in-list children)])
-                            (let ([dchild (draw-tree/standard child 
-                                                             xacc 
-                                                             (+ parenty node-width) 
-                                                             (add1 depth) 
-                                                             node-width 
-                                                             padding)]) 
-                              (values (drawable-node-children-xextent dchild) 
-                                      (drawable-node-children-yextent dchild)
-                                      (cons dchild chn))))]) 
-              (let* ([chn (reverse children)] 
-                     [xmin (drawable-node-x (first chn))] 
-                     [xmax (drawable-node-x (last chn))]) 
-                (drawable-node parent 
-                               (+ xmin (/ (- xmax xmin) 2))
-                               parenty
-                               node-width 
-                               depth
-                               chn 
-                               x-extent 
-                               (+ y-extent node-width))))))))
+;;draw-tree/private : node uint uint (node -> (uint . uint)) uint -> drawable-node
+(define (draw-tree/private parent x y depth dim-calc padding)
+  (match-define (cons w h) (dim-calc parent))
+  (cond 
+    [(empty? (node-children parent))
+     (drawable-node parent 
+                    (+ padding x) 
+                    (+ padding y) 
+                    w 
+                    depth
+                    '() 
+                    (+ padding x w) 
+                    (+ padding y h))]
+    [else
+     (define child-y (+ y h))
+     (define children (node-children parent))
+     (define parenty (+ y padding))
+     (cond 
+       [(= 1 (length children)) ;Align parent and child vertically
+        (define child (draw-tree/private (first children)
+                                         x 
+                                         (+ parenty h) 
+                                         (add1 depth) 
+                                         dim-calc 
+                                         padding)) 
+        (drawable-node parent 
+                       (drawable-node-x child) 
+                       parenty 
+                       w 
+                       h
+                       depth
+                       (list child) 
+                       (drawable-node-children-xextent child) 
+                       (drawable-node-children-yextent child))]
+       [else
+        (define-values (x-extent y-extent children) 
+          (for/fold ([xacc x] [yacc y] [chn '()]) ([child (in-list children)])
+            (define dchild (draw-tree/private child 
+                                              xacc 
+                                              (+ parenty h) 
+                                              (add1 depth) 
+                                              dim-calc 
+                                              padding))
+              (values (drawable-node-children-xextent dchild) 
+                      (drawable-node-children-yextent dchild)
+                      (cons dchild chn))))
+        (define chn (reverse children))
+        (define xmin (drawable-node-x (first chn)))
+        (define xmax (drawable-node-x (last chn)))
+        (drawable-node parent 
+                       (+ xmin (/ (- xmax xmin) 2))
+                       parenty
+                       w 
+                       h
+                       depth
+                       chn 
+                       x-extent 
+                       (+ y-extent h))])]))
 
 (struct attributed-node (node type num-leaves depth children))
 
@@ -105,21 +110,6 @@
                          depth 
                          achn))))
 
-;;tree-layout/private : drawable-node uint uint (listof drawable-node) -> (values uint uint (listof drawable-node))
-(define (tree-layout/private parent xextent yextent nodes) 
-  (if (empty? (drawable-node-children parent)) 
-      (values (max (+ (drawable-node-x parent) (drawable-node-width parent)) xextent) 
-              (max (+ (drawable-node-y parent) (drawable-node-width parent)) yextent) 
-              (cons parent nodes))
-      (for/fold ([x xextent] [y yextent] [ns (cons parent nodes)]) ([child (in-list (drawable-node-children parent))]) 
-        (tree-layout/private child x y (cons child ns)))))
-
-;;calc-tree-layout : drawable-node uint uint -> graph-layout
-(define (calc-tree-layout root node-width padding) 
-  (define-values (w h nodes) (tree-layout/private root 0 0 '())) 
-  (graph-layout w
-                h 
-                nodes))
 
 
 ;;draw-tree : node [symbol] [uint] [uint] [uint] -> tree-layout 
@@ -129,7 +119,7 @@
                    #:zoom [zoom-level 1])
   (let* ([scaled-node-w (* node-width zoom-level)] 
          [scaled-padding (* padding zoom-level)] 
-         [layout (calc-tree-layout (draw-tree/standard root 
+         [layout (calc-tree-layout (draw-tree/private root 
                                                        0 
                                                        0 
                                                        0
