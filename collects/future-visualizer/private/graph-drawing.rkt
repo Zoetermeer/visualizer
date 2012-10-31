@@ -137,7 +137,6 @@
         (define last-ch (last chn))
         (define xmin (drawable-node-x (first chn)))
         (define xmax cmx)
-        ;(define-values (xmax _) (control-point last-ch 'right 'center))
         (define nx (- (+ xmin (/ (- xmax xmin) 2))
                       (/ w 2)))
         (define ny (+ padding y))

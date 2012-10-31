@@ -218,9 +218,24 @@
   (send timeline-panel show-scrollbars #t #t)
   
   ;Calculate for and create creation graph pict container
+  ;Normalize sizes of nodes to the size of the window
+  (define trace-time (- (trace-end-time the-trace) (trace-start-time the-trace)))
+  (define norm-fact (if (< trace-time 200) 
+                        (/ 200 trace-time)
+                        (/ trace-time 200)))
+  (define default-width/2 (* CREATE-GRAPH-NODE-DIAMETER .5))
   (define creation-tree-layout (draw-tree (trace-creation-tree the-trace) 
-                                          #:dimensions-calc (λ (nd) (values (add1 (random 35)) 
-                                                                            (add1 (random 35)))) 
+                                          #:dimensions-calc (λ (nd) 
+                                                              (define data (node-data nd))
+                                                              (cond 
+                                                                [(future-stats? data)
+                                                                 (values (+ CREATE-GRAPH-NODE-DIAMETER 
+                                                                            (* (+ (future-stats-nblocks data) (future-stats-nsyncs data))
+                                                                               default-width/2))
+                                                                         (max (* (future-stats-running-time data) norm-fact)
+                                                                              CREATE-GRAPH-NODE-DIAMETER))]
+                                                                [else (values CREATE-GRAPH-NODE-DIAMETER
+                                                                              CREATE-GRAPH-NODE-DIAMETER)]))                                                                  
                                           #:padding CREATE-GRAPH-PADDING 
                                           #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
   
