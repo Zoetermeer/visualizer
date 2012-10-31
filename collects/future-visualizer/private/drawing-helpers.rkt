@@ -30,12 +30,12 @@
 
 ;;rect-pict : string string uint uint [uint] -> pict
 (define (rect-pict color stroke-color width height #:stroke-width [stroke-width 1])
-  (pin-over (colorize (filled-rectangle width height)
+  (pin-over (colorize (filled-rectangle (+ width (* stroke-width 2)) (+ height (* stroke-width 2)))
                       stroke-color)
-            (* stroke-width 2)
-            (* stroke-width 2)
-            (colorize (filled-rectangle (- width (* stroke-width 4))
-                                        (- height (* stroke-width 4)))
+            stroke-width
+            stroke-width
+            (colorize (filled-rectangle width #;(- width (* stroke-width 4))
+                                        height #;(- height (* stroke-width 4)))
                       color)))
 
 ;;text-pict : string [string] -> pict

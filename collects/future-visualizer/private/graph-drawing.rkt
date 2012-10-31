@@ -3,19 +3,16 @@
 (require racket/list
          racket/contract
          (only-in racket/match match-define)
-
          "constants.rkt")
-(provide (struct-out point) 
-         (struct-out node) 
+(provide (struct-out node) 
          (struct-out drawable-node) 
          (struct-out graph-layout) 
          (struct-out attributed-node)
          draw-tree
-         drawable-node-center 
+         control-point
          flatten-tree
          build-attr-tree)
 
-(define-struct/contract point ([x integer?] [y integer?]) #:transparent)
 (struct node (data children))
 (struct graph-layout (width height nodes) #:transparent)
 (struct drawable-node (node x y width height depth children children-xextent children-yextent) #:transparent)
@@ -31,14 +28,22 @@
 (define (flatten-tree dnodes)
   (flatten (flatten-tree/private dnodes)))
 
-(define (int x) 
-  (floor (exact->inexact x)))
-
-;;Gets the center point of a node circle.
-;;drawable-node-center : node -> point
-(define (drawable-node-center dnode) 
-  (point (int (+ (drawable-node-x dnode) (/ (drawable-node-width dnode) 2))) 
-         (int (+ (drawable-node-y dnode) (/ (drawable-node-width dnode) 2)))))
+;;control-point : drawable-node (or 'left 'center 'right) (or 'top 'center 'bottom)
+;;              -> (values uint uint)
+(define (control-point dnode horiz vert)
+  (define nx (drawable-node-x dnode))
+  (define nw (drawable-node-width dnode))
+  (define ny (drawable-node-y dnode))
+  (define nh (drawable-node-height dnode))
+  (values (case horiz
+            [(left) nx]
+            [(center) (+ nx (/ nw 2))]
+            [(right) (+ nx nw)])
+          (case vert
+            [(top) ny]
+            [(center) (+ ny (/ nh 2))]
+            [(bottom) (+ ny nh)])))
+  
 
 (struct attributed-node (node type num-leaves depth children))
 
@@ -86,8 +91,8 @@
   (define-values (w h) (values (* bw zoom) (* bh zoom)))
   (cond 
     [(empty? (node-children parent))
-     (define nx (+ padding x (/ w 2)))
-     (define ny (+ padding y (/ y 2)))
+     (define nx (+ padding x))
+     (define ny (+ padding y))
      (define xe (+ nx w))
      (define ye (+ ny h))
      (values (drawable-node parent 
@@ -115,8 +120,9 @@
                                                           padding
                                                           mx
                                                           my))
-        (define nx (+ padding x (/ w 2)))
-        (define ny (+ padding y (/ h 2)))
+        (define-values (cx _) (control-point child 'center 'top))
+        (define nx cx)
+        (define ny (+ padding y))
         (define xe (+ nx w))
         (define ye (+ ny h))
         (values (drawable-node parent 
@@ -144,8 +150,10 @@
                                                                my))
             (values (max xacc cmx) (max yacc cmy) (cons dchild chn))))
         (define chn (reverse children))
+        (define last-ch (last chn))
         (define xmin (drawable-node-x (first chn)))
-        (define xmax (drawable-node-x (last chn)))
+        (define xmax cmx)
+        ;(define-values (xmax _) (control-point last-ch 'right 'center))
         (define nx (+ xmin (/ (- xmax xmin) 2)))
         (define ny (+ padding y))
         (define xe (max (+ nx w) cmx))

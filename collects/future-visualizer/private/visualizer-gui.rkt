@@ -219,8 +219,8 @@
   
   ;Calculate for and create creation graph pict container
   (define creation-tree-layout (draw-tree (trace-creation-tree the-trace) 
-                                          #:dimensions-calc (λ (nd) (values (random 30) 
-                                                                            (random 30))) 
+                                          #:dimensions-calc (λ (nd) (values (add1 (random 35)) 
+                                                                            (add1 (random 35)))) 
                                           #:padding CREATE-GRAPH-PADDING 
                                           #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
   

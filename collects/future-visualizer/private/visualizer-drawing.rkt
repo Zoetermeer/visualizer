@@ -732,13 +732,13 @@
 ;Draw a line from one node on the creation graph to another
 ;;line-from : drawable-node drawable-node pict viewable-region -> pict
 (define (line-from start end pct minx miny)
-  (define par-center (drawable-node-center start))
-  (define child-center (drawable-node-center end))
+  (define-values (px py) (control-point start 'center 'bottom))
+  (define-values (cx cy) (control-point end 'center 'top))
   (draw-line-onto pct
-                  (- (point-x par-center) minx)
-                  (- (point-y par-center) miny)
-                  (- (point-x child-center) minx)
-                  (- (point-y child-center) miny)
+                  (- px minx)
+                  (- py miny)
+                  (- cx minx)
+                  (- cy miny)
                   (create-graph-edge-color)
                   #:width 1
                   #:style 'dot))
@@ -746,15 +746,15 @@
 ;Draws a circle for a node on the creation graph
 ;;node-pict : drawable-node -> pict
 (define (node-pict dnode)
-  (let* ([ndata (node-data (drawable-node-node dnode))]
-         [ntext (if (equal? ndata RT-THREAD-SYM) 
+  (define ndata (node-data (drawable-node-node dnode)))
+  (define ntext (if (equal? ndata RT-THREAD-SYM)
                     "RTT"
-                    (format "~a" (future-stats-fid ndata)))])
-    (cc-superimpose (rect-pict (create-graph-node-backcolor)
-                               (create-graph-node-strokecolor)
-                               (drawable-node-width dnode)
-                               (drawable-node-height dnode))
-                    (colorize (text ntext) (create-graph-node-forecolor)))))
+                    (format "~a" (future-stats-fid ndata))))
+  (cc-superimpose (rect-pict (create-graph-node-backcolor)
+                             (create-graph-node-strokecolor)
+                             (drawable-node-width dnode)
+                             (drawable-node-height dnode))
+                  (colorize (text ntext) (create-graph-node-forecolor))))
 
 ;;creation-tree-pict : (listof indexed-future-event) [enni] [enni] [enni] [enni] [enni] [enni] [enni] -> pict
 (define (creation-tree-pict events
