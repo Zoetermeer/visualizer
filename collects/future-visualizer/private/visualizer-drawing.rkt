@@ -793,16 +793,17 @@
                    (blank)))
   (define minx (if vregion (viewable-region-x vregion) 0))
   (define miny (if vregion (viewable-region-y vregion) 0))
+  (define all-nodes (flatten-tree (graph-layout-nodes layout)))
   (define viewable-nodes (if vregion
                              (filter (λ (n) (in-viewable-region vregion
                                                                 (drawable-node-x n)
                                                                 (drawable-node-y n)
                                                                 (drawable-node-width n)
                                                                 (drawable-node-height n)))
-                                     (flatten-tree (graph-layout-nodes layout)))
+                                     all-nodes)
                              (graph-layout-nodes layout)))
   (define with-arrows
-    (let ([arrow-pct (for/fold ([pct base]) ([node (in-list (graph-layout-nodes layout))])
+    (let ([arrow-pct (for/fold ([pct base]) ([node (in-list all-nodes)])
                        (for/fold ([p pct]) ([child (in-list (drawable-node-children node))])
                          (line-from node child p minx miny)))])
       (for/fold ([pct arrow-pct]) ([node (in-list viewable-nodes)])

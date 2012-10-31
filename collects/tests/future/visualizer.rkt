@@ -356,11 +356,14 @@
 (check-false (work-event? (future-event #f 0 'end-work 1.0 #f 0)))
 
 ;Graph drawing tests 
-(let* ([nodea (drawable-node (node 'a '()) 5 5 10 0 0 '() 10)]
-       [center (drawable-node-center nodea)]) 
-  (check-equal? (point-x center) 10.0) 
-  (check-equal? (point-y center) 10.0))
-
+;(struct drawable-node (node x y width height depth children children-xextent children-yextent) #:transparent)
+(define nodea (drawable-node (node 'a '()) 5 5 10 10 0 '() 10 10))
+(define-values (xc yc) (control-point nodea 'center 'center))
+(define-values (xl yt) (control-point nodea 'left 'top)) 
+(check-equal? xc 10) 
+(check-equal? yc 10)
+(check-equal? xl 5)
+(check-equal? yt 5)
 
 (define test-padding 5)
 (define test-width 10)
@@ -377,7 +380,7 @@
    b
 |#
 (define tree0 (tree 'a (tree 'b)))
-(let* ([layout (draw-tree tree0 #:node-width test-width #:padding test-padding)]
+(let* ([layout (draw-tree tree0 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)]
        [dnode-a (get-node 'a layout)]
        [dnode-b (get-node 'b layout)])
   (check-equal? (graph-layout-width layout) (+ (* test-padding 2) test-width))
@@ -397,7 +400,7 @@
 (define tree1 (tree 'a 
                     (tree 'b) 
                     (tree 'c)))
-(define layout (draw-tree tree1 #:node-width test-width #:padding test-padding)) 
+(define layout (draw-tree tree1 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)) 
 (for ([dnode (in-list (graph-layout-nodes layout))]) 
   (check-equal? (drawable-node-width dnode) test-width))
 (define dnode-a (get-node 'a layout)) 
@@ -434,7 +437,7 @@
                           (tree 'e) 
                           (tree 'f 
                                 (tree 'g)))))
-(let* ([layout (draw-tree tree2 #:node-width test-width #:padding test-padding)] 
+(let* ([layout (draw-tree tree2 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)] 
        [nodes (graph-layout-nodes layout)] 
        [dnode-a (get-node 'a layout)] 
        [dnode-b (get-node 'b layout)] 
@@ -479,7 +482,7 @@
                     (tree 'c 
                           (tree 'd)) 
                     (tree 'e)))
-(let* ([layout (draw-tree tree3 #:node-width test-width #:padding test-padding)] 
+(let* ([layout (draw-tree tree3 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)] 
        [nodes (graph-layout-nodes layout)] 
        [dnode-a (get-node 'a layout)] 
        [dnode-b (get-node 'b layout)] 
@@ -515,7 +518,7 @@
                           (tree 'e)) 
                     (tree 'f) 
                     (tree 'g)))
-(let* ([layout (draw-tree tree4 #:node-width test-width #:padding test-padding)] 
+(let* ([layout (draw-tree tree4 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)] 
        [nodes (graph-layout-nodes layout)] 
        [dnode-a (get-node 'a layout)] 
        [dnode-b (get-node 'b layout)] 
@@ -562,7 +565,7 @@ Layered-tree-draw example from Di Battista
                                 (tree 'i) 
                                 (tree 'j)) 
                           (tree 'k))))
-(let* ([layout (draw-tree tree5 #:node-width test-width #:padding test-padding)] 
+(let* ([layout (draw-tree tree5 #:dimensions-calc (λ (nd) test-width) #:padding test-padding)] 
        [nodes (graph-layout-nodes layout)] 
        [dnode-a (get-node 'a layout)] 
        [dnode-b (get-node 'b layout)] 

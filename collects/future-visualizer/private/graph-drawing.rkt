@@ -43,7 +43,6 @@
             [(top) ny]
             [(center) (+ ny (/ nh 2))]
             [(bottom) (+ ny nh)])))
-  
 
 (struct attributed-node (node type num-leaves depth children))
 
@@ -66,21 +65,6 @@
                          leaves 
                          depth 
                          achn))))
-
-(define (tree-extents/private parent xextent yextent nodes)
-  (if (empty? (drawable-node-children parent))
-      (values (max (+ (drawable-node-x parent) (drawable-node-width parent)) xextent)
-              (max (+ (drawable-node-y parent) (drawable-node-width parent)) yextent)
-              (cons parent nodes))
-      (for/fold ([x xextent] [y yextent] [ns (cons parent nodes)]) ([child (in-list (drawable-node-children parent))])
-        (tree-extents/private child x y (cons child ns)))))
-
-;;calc-tree-layout : drawable-node uint uint -> graph-layout
-(define (tree-extents root node-width padding)
-  (define-values (w h nodes) (tree-extents/private root 0 0 '()))
-  (graph-layout w
-                h
-                nodes))
 
 ;Computes the drawable nodes, and horizontal and vertical extents of
 ;the resulting image
@@ -121,7 +105,7 @@
                                                           mx
                                                           my))
         (define-values (cx _) (control-point child 'center 'top))
-        (define nx cx)
+        (define nx (max (- cx (/ w 2)) (+ x padding)))
         (define ny (+ padding y))
         (define xe (+ nx w))
         (define ye (+ ny h))
@@ -154,7 +138,8 @@
         (define xmin (drawable-node-x (first chn)))
         (define xmax cmx)
         ;(define-values (xmax _) (control-point last-ch 'right 'center))
-        (define nx (+ xmin (/ (- xmax xmin) 2)))
+        (define nx (- (+ xmin (/ (- xmax xmin) 2))
+                      (/ w 2)))
         (define ny (+ padding y))
         (define xe (max (+ nx w) cmx))
         (define ye (max (+ ny h) cmy))
