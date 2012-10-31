@@ -20,8 +20,6 @@
          create-graph-node-strokecolor 
          create-graph-node-forecolor 
          create-graph-edge-color 
-         create-graph-block-node-forecolor 
-         create-graph-sync-node-forecolor
          create-graph-stats-forecolor
          create-graph-stats-backcolor
          get-time-string
@@ -127,8 +125,6 @@
 (define (create-graph-node-backcolor) "steelblue")
 (define (create-graph-node-strokecolor) "darkgray")
 (define (create-graph-edge-color) "black")
-(define (create-graph-block-node-forecolor) "black")
-(define (create-graph-sync-node-forecolor) "black")
 (define (create-graph-stats-forecolor) "white")
 (define (create-graph-stats-backcolor) "black")
 
