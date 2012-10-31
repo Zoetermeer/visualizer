@@ -2,6 +2,7 @@
 (require racket/list
          racket/class
          racket/draw
+         (only-in racket/match match-define)
          slideshow/pict
          data/interval-map
          "visualizer-data.rkt"
@@ -111,14 +112,14 @@
 ;;find-fid-for-coords : uint uint (listof drawable-node) -> drawable-node
 (define (find-node-for-coords x y nodes)
   (define node-l (filter (λ (n)
-                               (define n-x (drawable-node-x n))
-                               (define n-y (drawable-node-y n))
-                               (define n-w (drawable-node-width n))
-                               (and (n-x . < . x)
-                                    (n-y . < . y)
-                                    (x . < . (+ n-x n-w))
-                                    (y . < . (+ n-y n-w))))
-                          (remove-duplicates (flatten nodes))))
+                           (define-values (nx ny) (control-point n 'left 'top))
+                           (define nw (drawable-node-width n))
+                           (define nh (drawable-node-height n))
+                           (and (nx . < . x)
+                                (ny . < . y)
+                                (x . < . (+ nx nw))
+                                (y . < . (+ ny nh))))
+                         nodes))
   (cond
     [(empty? node-l)
      #f]
@@ -821,63 +822,91 @@
 
 ;;graph-overlay-pict : drawable-node trace graph-layout -> pict
 (define (graph-overlay-pict hover-node tr layout vregion scale-factor)
-  (define (root-sym-or-first-evt n) (node-data (drawable-node-node n)))
+  (define (data) (node-data (drawable-node-node hover-node)))
   (cond
-    [(or (not hover-node) (equal? (root-sym-or-first-evt hover-node) 'runtime-thread))
+    [(or (not hover-node) (equal? (data) RT-THREAD-SYM))
       #f]
     [else
-     (define fid (event-user-data (root-sym-or-first-evt hover-node)))
-     (define ri (hash-ref (trace-future-rtcalls tr) fid #f))
-     (cond
-       [(not ri) #f]
-       [else
-        (define block-ops (sort (hash-keys (rtcall-info-block-hash ri))
-                                >
-                                #:key (λ (p)
-                                        (hash-ref (rtcall-info-block-hash ri) p))))
-        (define sync-ops (sort (hash-keys (rtcall-info-sync-hash ri))
-                               >
-                               #:key (λ (op)
-                                       (hash-ref (rtcall-info-sync-hash ri) op))))
-        (define-values (node-origin-x node-origin-y)
-          (values (* (- (drawable-node-x hover-node) (viewable-region-x vregion)) scale-factor)
-                  (* (- (drawable-node-y hover-node) (viewable-region-y vregion)) scale-factor)))
-        (define-values (center-x center-y)
-          (values (+ node-origin-x (/ (* (drawable-node-width hover-node) scale-factor) 2))
-                  (+ node-origin-y (/ (* (drawable-node-width hover-node) scale-factor) 2))))
-        (define x (+ center-x CREATE-GRAPH-NODE-DIAMETER))
-        (define-values (pct yacc)
-          (for/fold ([p (pin-over (blank (viewable-region-width vregion) (viewable-region-height vregion))
-                                  node-origin-x
-                                  node-origin-y
-                                  (scale (node-pict hover-node) scale-factor))]
-                     [yacc node-origin-y])
-            ([rtcall (in-list (append (map (λ (op) (cons 'block op)) block-ops)
-                                      (map (λ (op) (cons 'sync op)) sync-ops)))])
-            (define evt-type (car rtcall))
-            (define prim (cdr rtcall))
-            (define the-hash (if (equal? evt-type 'block) (rtcall-info-block-hash ri) (rtcall-info-sync-hash ri)))
-            (define txtp (text-pict (format "~a (~a)"
-                                            (symbol->string prim)
-                                            (hash-ref the-hash prim))
-                                    #:color (get-event-forecolor evt-type)))
-            (define txtbg (rect-pict (get-event-color evt-type)
-                                     (create-graph-edge-color)
-                                     (+ (pict-width txtp) (* TOOLTIP-MARGIN 2))
-                                     (+ (pict-height txtp) (* TOOLTIP-MARGIN 2))
-                                     #:stroke-width .5))
-            (values
-             (pin-over (draw-line-onto p
-                                       center-x
-                                       center-y
-                                       x
-                                       yacc
-                                       (create-graph-edge-color))
-                       x
-                       yacc
-                       (pin-over txtbg
-                                 TOOLTIP-MARGIN
-                                 TOOLTIP-MARGIN
-                                 txtp))
-             (+ yacc (pict-height txtbg) CREATE-GRAPH-PADDING))))
-        pct])]))
+     (define d (data))
+     (define fid (future-stats-fid d))
+        (define-values (aox aoy) (control-point hover-node 'left 'top))
+        (define rox (* (- aox (viewable-region-x vregion)) scale-factor))
+        (define roy (* (- aoy (viewable-region-y vregion)) scale-factor))
+        (define-values (acx acy) (control-point hover-node 'center 'center))
+        (define rcx (* (- acx (viewable-region-x vregion)) scale-factor))
+        (define rcy (* (- acy (viewable-region-y vregion)) scale-factor))
+        (define-values (rx _) (control-point hover-node 'right 'center))
+        (define x (+ rx CREATE-GRAPH-PADDING))
+        (define base (blank (viewable-region-width vregion) (viewable-region-height vregion)))
+        ;Draw the 'stats' box
+        (define forecolor (create-graph-stats-forecolor))
+        (define backcolor (create-graph-stats-backcolor))
+        (define ft (text-pict (format "Future ~a" fid) #:color forecolor #:style '(bold)))
+        (define bt (text-pict (format "Blocks: ~a" (future-stats-nblocks d)) #:color forecolor))
+        (define st (text-pict (format "Syncs: ~a" (future-stats-nsyncs d)) #:color forecolor))
+        (define at (text-pict (format "Alocs: ~a" (future-stats-nallocs d)) #:color forecolor))
+        (define rt (text-pict (format "Running time: ~a ms" (future-stats-running-time d)) #:color forecolor))
+        (define wt (text-pict (format "Work time: ~a ms (~a%)" 
+                                      (future-stats-working-time d)
+                                      (* (/ (future-stats-working-time d)
+                                            (future-stats-running-time d))
+                                         100)) #:color forecolor))
+        (define stats (list ft bt st at rt wt))
+        (define statsbg (rect-pict backcolor 
+                                   backcolor
+                                   (foldl (λ (p x) (max (+ (pict-width p) (* TOOLTIP-MARGIN 2)) x)) 0 stats)
+                                   (foldl (λ (p y) (+ (pict-height p) TOOLTIP-MARGIN y)) 0 stats)
+                                   #:opacity CREATE-GRAPH-STATS-OPACITY))
+        (define-values (statsp __)
+          (for/fold ([p statsbg] [my 0]) ([tp (in-list stats)])
+            (define y (+ my TOOLTIP-MARGIN))
+            (values (pin-over p TOOLTIP-MARGIN y tp)
+                    (+ y (pict-height tp)))))
+        (define with-statsp (pin-over base x roy statsp))
+        (define ri (hash-ref (trace-future-rtcalls tr) fid #f))
+        (cond 
+          [(not ri) with-statsp]
+          [else
+           (define (srt-prims hsh)
+             (sort (hash-keys hsh)
+                   >
+                   #:key (λ (p)
+                           (hash-ref hsh p))))
+           (define block-ops (srt-prims (rtcall-info-block-hash ri)))
+           (define sync-ops (srt-prims (rtcall-info-sync-hash ri)))
+           (define-values (pct yacc)
+             (for/fold ([p (pin-over with-statsp
+                                     rox
+                                     roy
+                                     (scale (node-pict hover-node) scale-factor))]
+                        [yacc (+ roy (pict-height statsp) TOOLTIP-MARGIN)])
+               ([rtcall (in-list (append (map (λ (op) (cons 'block op)) block-ops)
+                                         (map (λ (op) (cons 'sync op)) sync-ops)))])
+               (match-define (cons evt-type prim) rtcall)
+               (define the-hash (case evt-type
+                                  [(block) (rtcall-info-block-hash ri)]
+                                  [(sync) (rtcall-info-sync-hash ri)]))
+               (define txtp (text-pict (format "~a (~a)"
+                                               (symbol->string prim)
+                                               (hash-ref the-hash prim))
+                                       #:color (get-event-forecolor evt-type)))
+               (define txtbg (rect-pict (get-event-color evt-type)
+                                        (create-graph-edge-color)
+                                        (+ (pict-width txtp) (* TOOLTIP-MARGIN 2))
+                                        (+ (pict-height txtp) (* TOOLTIP-MARGIN 2))
+                                        #:stroke-width .5))
+               (values
+                (pin-over (draw-line-onto p
+                                          rcx
+                                          rcy
+                                          x
+                                          yacc
+                                          (create-graph-edge-color))
+                          x
+                          yacc
+                          (pin-over txtbg
+                                    TOOLTIP-MARGIN
+                                    TOOLTIP-MARGIN
+                                    txtp))
+                (+ yacc (pict-height txtbg) CREATE-GRAPH-PADDING))))
+           pct])]))

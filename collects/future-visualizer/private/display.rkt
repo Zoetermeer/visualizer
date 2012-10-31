@@ -22,6 +22,8 @@
          create-graph-edge-color 
          create-graph-block-node-forecolor 
          create-graph-sync-node-forecolor
+         create-graph-stats-forecolor
+         create-graph-stats-backcolor
          get-time-string
          (struct-out viewable-region) 
          viewable-region-x-extent 
@@ -127,6 +129,8 @@
 (define (create-graph-edge-color) "black")
 (define (create-graph-block-node-forecolor) "white")
 (define (create-graph-sync-node-forecolor) "white")
+(define (create-graph-stats-forecolor) "white")
+(define (create-graph-stats-backcolor) "black")
 
 (define (get-time-string time) 
   (if (or (= 0.0 time) (> time 0.1))

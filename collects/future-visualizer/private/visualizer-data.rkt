@@ -89,6 +89,9 @@
                     sync-hash) ; op name --o--> number of syncs 
   #:transparent)
 
+;Data stored in each graph node (for layout info)
+(struct future-stats (fid nblocks nsyncs nallocs running-time working-time)) 
+
 ;(struct process-timeline timeline (proc-index))
 (struct process-timeline (proc-id 
                           proc-index
@@ -539,9 +542,6 @@
 
 
 #| GRAPH DRAWING |#
-;Data stored in each graph node (for layout info)
-(struct future-stats (fid nblocks nsyncs nallocs running-time time-working)) 
-
 ;;stats : (listof event) -> future-stats
 (define (stats evts) 
   (define-values (b s a tw endt) 

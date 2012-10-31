@@ -29,18 +29,28 @@
                         color)))
 
 ;;rect-pict : string string uint uint [uint] -> pict
-(define (rect-pict color stroke-color width height #:stroke-width [stroke-width 1])
-  (pin-over (colorize (filled-rectangle (+ width (* stroke-width 2)) (+ height (* stroke-width 2)))
-                      stroke-color)
-            stroke-width
-            stroke-width
-            (colorize (filled-rectangle width #;(- width (* stroke-width 4))
-                                        height #;(- height (* stroke-width 4)))
-                      color)))
+(define (rect-pict color 
+                   stroke-color 
+                   width 
+                   height 
+                   #:stroke-width [stroke-width 1]
+                   #:opacity [opacity 1])
+  (define r (pin-over (colorize (filled-rectangle (+ width (* stroke-width 2)) (+ height (* stroke-width 2)))
+                                stroke-color)
+                      stroke-width
+                      stroke-width
+                      (colorize (filled-rectangle width height)
+                                color)))
+  (cond 
+    [(= 1 opacity) r]
+    [else (cellophane r opacity)]))
+  
 
 ;;text-pict : string [string] -> pict
-(define (text-pict t #:color [color "black"])
-  (colorize (text t) color))
+(define (text-pict t 
+                   #:color [color "black"]
+                   #:style [style null])
+  (colorize (text t style) color))
 
 ;;text-block-pict : string [string] [string] [uint] [float] [uint] [uint] -> pict
 (define (text-block-pict t #:backcolor [backcolor "white"]

@@ -238,16 +238,7 @@
                                                                               CREATE-GRAPH-NODE-DIAMETER)]))                                                                  
                                           #:padding CREATE-GRAPH-PADDING 
                                           #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
-  
-  ;;REMOVEME: Print nodes for debugging
-  (define fns (flatten-tree (graph-layout-nodes creation-tree-layout)))
-  (for ([n (in-list fns)])
-    (printf "Node: x=~a, y=~a, w=~a, h=~a\n" 
-            (exact->inexact (drawable-node-x n))
-            (exact->inexact (drawable-node-y n))
-            (drawable-node-width n)
-            (drawable-node-height n)))
-  
+  (define all-tree-nodes (flatten-tree (graph-layout-nodes creation-tree-layout)))  
   (define hovered-graph-node #f)
   (define creategraph-panel (new pict-canvas% 
                                  [parent graph-container]
@@ -255,19 +246,18 @@
                                                  (draw-creategraph-pict vregion 
                                                                          creation-tree-layout))]
                                  [hover-handler (λ (x y vregion) 
-                                                  (define hovered (find-node-for-coords x y 
-                                                                                        (graph-layout-nodes creation-tree-layout))) 
+                                                  (define hovered (find-node-for-coords x y all-tree-nodes)) 
                                                   (cond 
                                                     [(eq? hovered hovered-graph-node) #f] 
                                                     [else 
                                                      (set! hovered-graph-node 
                                                            (find-node-for-coords x 
                                                                                  y 
-                                                                                 (graph-layout-nodes creation-tree-layout))) 
+                                                                                 all-tree-nodes)) 
                                                      (if (not hovered-graph-node) #t hovered-graph-node)]))]
                                  [click-handler (λ (x y vregion)
                                                   (define fid (find-fid-for-coords 
-                                                               x y (graph-layout-nodes creation-tree-layout)
+                                                               x y all-tree-nodes
                                                                vregion))
                                                   (cond 
                                                     [(not fid) #f] 
