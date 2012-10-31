@@ -217,27 +217,35 @@
         0.0)
   (send timeline-panel show-scrollbars #t #t)
   
-  ;Calculate for and create creation graph pict container
-  ;Normalize sizes of nodes to the size of the window
-  (define trace-time (- (trace-end-time the-trace) (trace-start-time the-trace)))
-  (define norm-fact (if (< trace-time 200) 
-                        (/ 200 trace-time)
-                        (/ trace-time 200)))
-  (define default-width/2 (* CREATE-GRAPH-NODE-DIAMETER .5))
-  (define creation-tree-layout (draw-tree (trace-creation-tree the-trace) 
-                                          #:dimensions-calc (λ (nd) 
-                                                              (define data (node-data nd))
-                                                              (cond 
-                                                                [(future-stats? data)
-                                                                 (values (+ CREATE-GRAPH-NODE-DIAMETER 
-                                                                            (* (+ (future-stats-nblocks data) (future-stats-nsyncs data))
-                                                                               default-width/2))
-                                                                         (max (* (future-stats-running-time data) norm-fact)
-                                                                              CREATE-GRAPH-NODE-DIAMETER))]
-                                                                [else (values CREATE-GRAPH-NODE-DIAMETER
-                                                                              CREATE-GRAPH-NODE-DIAMETER)]))                                                                  
-                                          #:padding CREATE-GRAPH-PADDING 
-                                          #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
+  ;Calculate for and create creation graph pict container  
+  ;;node-appearance : node -> (values uint uint color color)
+  (define (node-appearance node)
+    ;Normalize sizes of nodes to the size of the window
+    (define trace-time (- (trace-end-time the-trace) (trace-start-time the-trace)))
+    (define norm-fact (if (< trace-time 200) 
+                          (/ 200 trace-time)
+                          (/ trace-time 200)))
+    (define default-width/2 (* CREATE-GRAPH-NODE-DIAMETER .5))
+    (define data (node-data node))
+    (cond 
+      [(future-stats? data) ;This node represents a future
+       (values (+ CREATE-GRAPH-NODE-DIAMETER 
+                  (* (+ (future-stats-nblocks data) (future-stats-nsyncs data))
+                     default-width/2))
+               (max (* (future-stats-running-time data) norm-fact)
+                    CREATE-GRAPH-NODE-DIAMETER)
+               "white" 
+               "maroon")]
+      [else (values CREATE-GRAPH-NODE-DIAMETER ;This node is the root
+                    CREATE-GRAPH-NODE-DIAMETER
+                    "black"
+                    "magenta")]))
+  
+  (define creation-tree-layout (draw-polymetric-treeview 
+                                (trace-creation-tree the-trace) 
+                                #:node-appearance node-appearance                                                                  
+                                #:padding CREATE-GRAPH-PADDING 
+                                #:zoom CREATE-GRAPH-DEFAULT-ZOOM))
   (define all-tree-nodes (flatten-tree (graph-layout-nodes creation-tree-layout)))  
   (define hovered-graph-node #f)
   (define creategraph-panel (new pict-canvas% 

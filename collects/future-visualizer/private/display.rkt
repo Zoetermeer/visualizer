@@ -104,7 +104,7 @@
 ;;get-event-forecolor : symbol -> string
 (define (get-event-forecolor type) 
   (case type 
-    [(block) "white"] 
+    [(block sync) "black"]
     [else "black"]))
 
 (define (header-forecolor) "white") 
@@ -127,8 +127,8 @@
 (define (create-graph-node-backcolor) "steelblue")
 (define (create-graph-node-strokecolor) "darkgray")
 (define (create-graph-edge-color) "black")
-(define (create-graph-block-node-forecolor) "white")
-(define (create-graph-sync-node-forecolor) "white")
+(define (create-graph-block-node-forecolor) "black")
+(define (create-graph-sync-node-forecolor) "black")
 (define (create-graph-stats-forecolor) "white")
 (define (create-graph-stats-backcolor) "black")
 

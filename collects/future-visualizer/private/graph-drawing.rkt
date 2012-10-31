@@ -3,19 +3,29 @@
 (require racket/list
          racket/contract
          (only-in racket/match match-define)
-         "constants.rkt")
+         "constants.rkt"
+         "display.rkt")
 (provide (struct-out node) 
          (struct-out drawable-node) 
          (struct-out graph-layout) 
          (struct-out attributed-node)
-         draw-tree
+         draw-polymetric-treeview
          control-point
          flatten-tree
          build-attr-tree)
 
 (struct node (data children))
 (struct graph-layout (width height nodes) #:transparent)
-(struct drawable-node (node x y width height depth children children-xextent children-yextent) #:transparent)
+(struct drawable-node (node x 
+                            y 
+                            width 
+                            height 
+                            forecolor 
+                            backcolor 
+                            depth 
+                            children 
+                            children-xextent 
+                            children-yextent) #:transparent)
 
 (define (flatten-tree/private dnodes)
   (cond
@@ -25,6 +35,7 @@
              (for/list ([dn (in-list dnodes)])
                (flatten-tree/private (drawable-node-children dn))))]))
 
+;;flatten-tree : (listof (or drawable-node listof drawable-node) ...) -> (listof drawable-node)
 (define (flatten-tree dnodes)
   (flatten (flatten-tree/private dnodes)))
 
@@ -68,10 +79,10 @@
 
 ;Computes the drawable nodes, and horizontal and vertical extents of
 ;the resulting image
-;;draw-tree/private : node uint uint (node -> (uint . uint)) uint uint 
-;;                    -> (values drawable-node uint uint)
-(define (draw-tree/private parent x y depth dim-calc zoom padding mx my)
-  (define-values (bw bh) (dim-calc parent))
+;;draw-polymetric-treeview/private : node uint uint (node -> (uint . uint)) uint uint 
+;;                                 -> (values drawable-node uint uint)
+(define (draw-polymetric-treeview/private parent x y depth nd-app zoom padding mx my)
+  (define-values (bw bh forecolor backcolor) (nd-app parent))
   (define-values (w h) (values (* bw zoom) (* bh zoom)))
   (cond 
     [(empty? (node-children parent))
@@ -84,6 +95,8 @@
                             ny 
                             w 
                             h
+                            forecolor
+                            backcolor
                             depth
                             '() 
                             xe 
@@ -95,15 +108,15 @@
      (define parenty (+ y padding))
      (cond 
        [(= 1 (length (node-children parent))) ;Align parent and child vertically
-        (define-values (child cmx cmy) (draw-tree/private (first (node-children parent))
-                                                          x 
-                                                          (+ parenty h) 
-                                                          (add1 depth) 
-                                                          dim-calc 
-                                                          zoom
-                                                          padding
-                                                          mx
-                                                          my))
+        (define-values (child cmx cmy) (draw-polymetric-treeview/private (first (node-children parent))
+                                                                         x 
+                                                                         (+ parenty h) 
+                                                                         (add1 depth) 
+                                                                         nd-app 
+                                                                         zoom
+                                                                         padding
+                                                                         mx
+                                                                         my))
         (define-values (cx _) (control-point child 'center 'top))
         (define nx (max (- cx (/ w 2)) (+ x padding)))
         (define ny (+ padding y))
@@ -114,6 +127,8 @@
                                ny 
                                w 
                                h
+                               forecolor
+                               backcolor
                                depth
                                (list child) 
                                cmx 
@@ -123,15 +138,15 @@
        [else
         (define-values (cmx cmy children) 
           (for/fold ([xacc x] [yacc y] [chn '()]) ([child (in-list (node-children parent))])
-            (define-values (dchild cmx cmy) (draw-tree/private child 
-                                                               xacc 
-                                                               (+ parenty h) 
-                                                               (add1 depth) 
-                                                               dim-calc 
-                                                               zoom
-                                                               padding
-                                                               mx
-                                                               my))
+            (define-values (dchild cmx cmy) (draw-polymetric-treeview/private child 
+                                                                              xacc 
+                                                                              (+ parenty h) 
+                                                                              (add1 depth) 
+                                                                              nd-app 
+                                                                              zoom
+                                                                              padding
+                                                                              mx
+                                                                              my))
             (values (max xacc cmx) (max yacc cmy) (cons dchild chn))))
         (define chn (reverse children))
         (define last-ch (last chn))
@@ -147,6 +162,8 @@
                                ny
                                w 
                                h
+                               forecolor
+                               backcolor
                                depth
                                chn 
                                xe
@@ -155,22 +172,24 @@
                 (max ye my))])]))
 
 ;;draw-tree : node [symbol] [uint] [uint] [uint] -> tree-layout 
-(define (draw-tree root 
-                   #:dimensions-calc [dim-calc (λ (nd) (values CREATE-GRAPH-NODE-DIAMETER
-                                                               CREATE-GRAPH-NODE-DIAMETER))]
+(define (draw-polymetric-treeview root 
+                   #:node-appearance [nd-app (λ (nd) (values CREATE-GRAPH-NODE-DIAMETER
+                                                             CREATE-GRAPH-NODE-DIAMETER 
+                                                             (create-graph-node-forecolor)
+                                                             (create-graph-node-backcolor)))]
                    #:padding [padding CREATE-GRAPH-PADDING] 
                    #:zoom [zoom-level 1])
   (define scaled-padding (* padding zoom-level))
   (define-values (dnodes x-ext y-ext) 
-    (draw-tree/private root
-                       0
-                       0
-                       0
-                       dim-calc
-                       zoom-level
-                       scaled-padding 
-                       0
-                       0)) 
+    (draw-polymetric-treeview/private root
+                                      0
+                                      0
+                                      0
+                                      nd-app
+                                      zoom-level
+                                      scaled-padding 
+                                      0
+                                      0)) 
   (graph-layout (+ x-ext scaled-padding) 
                 (+ y-ext scaled-padding) 
                 (list dnodes)))
