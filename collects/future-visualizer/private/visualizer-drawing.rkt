@@ -865,6 +865,104 @@
          (define y (+ my TOOLTIP-MARGIN))
          (values (pin-over p TOOLTIP-MARGIN y tp)
                  (+ y (pict-height tp)))))
+     
+     ;Build up the other boxes, then calculate the 
+     ;needed width and height to see whether we can fit 
+     ;the mouseover display in the visible window
+     (define ri (hash-ref (trace-future-rtcalls tr) fid #f))
+     (define-values (boxes need-w need-h) 
+       (cond 
+         [(not ri) (values (list statsp) (pict-width statsp) (pict-height statsp))]
+         [else
+          (define (srt-prims hsh)
+            (sort (hash-keys hsh)
+                  >
+                  #:key (λ (p)
+                          (hash-ref hsh p))))
+          (define block-ops (srt-prims (rtcall-info-block-hash ri)))
+          (define sync-ops (srt-prims (rtcall-info-sync-hash ri)))
+          (for/fold ([boxes (list statsp)]
+                     [need-w (pict-width statsp)]
+                     [need-h (+ (pict-height statsp) TOOLTIP-MARGIN)])
+            ([rtcall (in-list (append (map (λ (op) (cons 'block op)) block-ops)
+                                      (map (λ (op) (cons 'sync op)) sync-ops)))])
+            (match-define (cons evt-type prim) rtcall)
+            (define the-hash (case evt-type
+                               [(block) (rtcall-info-block-hash ri)]
+                               [(sync) (rtcall-info-sync-hash ri)]))
+            (define txtp (text-pict (format "~a (~a)"
+                                            (symbol->string prim)
+                                            (hash-ref the-hash prim))
+                                    #:color (get-event-forecolor evt-type)))
+            (define txtbg (rect-pict (get-event-color evt-type)
+                                     (create-graph-edge-color)
+                                     (+ (pict-width txtp) (* TOOLTIP-MARGIN 2))
+                                     (+ (pict-height txtp) (* TOOLTIP-MARGIN 2))
+                                     #:stroke-width .5))
+            (values (cons (pin-over txtbg TOOLTIP-MARGIN TOOLTIP-MARGIN txtp) 
+                          boxes) 
+                    (max need-w (pict-width txtbg)) 
+                    (+ need-h (pict-height txtbg) TOOLTIP-MARGIN)))]))
+     (define x-overlap (- (+ x need-w) (viewable-region-width vregion)))
+     (define y-overlap (- (+ roy need-h) (viewable-region-height vregion)))
+     (define (adj orig overlap)
+       (cond 
+         [(positive? overlap) (- orig overlap TOOLTIP-MARGIN)]
+         [else orig]))
+     (define-values (adj-ox adj-oy) (values (adj x x-overlap) (adj roy y-overlap)))
+     (define-values (pct ___)
+       (for/fold ([p (pin-over base 
+                               rox
+                               roy 
+                               (scale (node-pict hover-node) scale-factor))]
+                  [yacc adj-oy])
+         ([txt-box (in-list (reverse boxes))])
+         (values 
+          (draw-line-onto (pin-over p adj-ox yacc txt-box)
+                          rcx
+                          rcy
+                          adj-ox
+                          yacc
+                          (create-graph-edge-color))
+          (+ yacc (pict-height txt-box) TOOLTIP-MARGIN))))
+     pct]))
+                    
+                                    
+         #|
+         
+         ([rtcall (in-list (append (map (λ (op) (cons 'block op)) block-ops)
+                                   (map (λ (op) (cons 'sync op)) sync-ops)))])
+         (match-define (cons evt-type prim) rtcall)
+         (define the-hash (case evt-type
+                            [(block) (rtcall-info-block-hash ri)]
+                            [(sync) (rtcall-info-sync-hash ri)]))
+         (define txtp (text-pict (format "~a (~a)"
+                                         (symbol->string prim)
+                                         (hash-ref the-hash prim))
+                                 #:color (get-event-forecolor evt-type)))
+         (define txtbg (rect-pict (get-event-color evt-type)
+                                  (create-graph-edge-color)
+                                  (+ (pict-width txtp) (* TOOLTIP-MARGIN 2))
+                                  (+ (pict-height txtp) (* TOOLTIP-MARGIN 2))
+                                  #:stroke-width .5))
+         (values
+          (pin-over (draw-line-onto p
+                                    rcx
+                                    rcy
+                                    x
+                                    yacc
+                                    (create-graph-edge-color))
+                    x
+                    yacc
+                    (pin-over txtbg
+                              TOOLTIP-MARGIN
+                              TOOLTIP-MARGIN
+                              txtp))
+          (+ yacc (pict-height txtbg) CREATE-GRAPH-PADDING))))
+     
+                   
+     
+     
      (define with-statsp (pin-over base x roy statsp))
      (define ri (hash-ref (trace-future-rtcalls tr) fid #f))
      (define final-pct 
@@ -915,3 +1013,4 @@
                (+ yacc (pict-height txtbg) CREATE-GRAPH-PADDING))))
           pct]))
      final-pct]))
+|#
