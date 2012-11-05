@@ -6,7 +6,7 @@
          (struct-out visualization)
          (struct-out node)
          (struct-out rect-view)
-         (struct-out execution)
+         (struct-out exec)
          (struct-out future)
          (struct-out thread)
          (struct-out event))
@@ -16,7 +16,7 @@
 
 (struct rect-view (get-width get-height get-color) #:transparent)
 
-(struct execution (all-futures))
+(struct exec (start-time end-time all-futures))
 (struct future (id real-time spawned-futures barricades syncs allocs) #:transparent)
 (struct thread (id all-events))
 (struct event (index start-time end-time previous-event next-event))
