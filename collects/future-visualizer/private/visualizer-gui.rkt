@@ -229,17 +229,23 @@
     (define data (node-data node))
     (cond 
       [(future-stats? data) ;This node represents a future
+       (define default-color (make-object color% "blue"))
+       (define inc (* (future-stats-nallocs data) 2))
+       (send default-color set 
+             (min (+ (send default-color red) inc) 255)
+             (send default-color green)
+             (max (- (send default-color blue) inc) 0))
        (values (+ CREATE-GRAPH-NODE-DIAMETER 
                   (* (+ (future-stats-nblocks data) (future-stats-nsyncs data))
                      default-width/2))
                (max (* (future-stats-running-time data) norm-fact)
                     CREATE-GRAPH-NODE-DIAMETER)
                "white" 
-               "maroon")]
+               (if (zero? (future-stats-nallocs data)) "LightSkyBlue" "Maroon"))]
       [else (values CREATE-GRAPH-NODE-DIAMETER ;This node is the root
                     CREATE-GRAPH-NODE-DIAMETER
-                    "black"
-                    "magenta")]))
+                    "White"
+                    "DimGray")]))
   
   (define creation-tree-layout (draw-polymetric-treeview 
                                 (trace-creation-tree the-trace) 
