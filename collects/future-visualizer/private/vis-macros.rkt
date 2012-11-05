@@ -148,11 +148,12 @@
 ;defined using the same language.
 (define-visualization circle (diameter color)
   #:layout (λ (vis-data nodes)
-             (blank diameter diameter)))
+             (colorize (filled-ellipse diameter diameter) color)))
 
 (define-visualization rect (width height color)
   #:layout (λ (vis-data nodes)
-             (+ width height vis-data)))
+             (colorize (filled-rectangle width height)
+                       color)))
              
 ;The left-hand hierlist view with barricade/sync/gc items
 #;(define-visualization summary-view
@@ -193,8 +194,8 @@
                             (future 2 20.0 '() '() '() '())
                             (future 3 10.0 '(4) '() '() '())
                             (future 4 25.0 '() '() '() '()))))
-((creation-graph) ex)
-                             
+;((creation-graph) ex)
+;((rect #:width 300 #:height 400 #:color "red") #f)                            
 
 
 
