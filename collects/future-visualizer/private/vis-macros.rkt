@@ -20,6 +20,11 @@
       p
       (λ (v) p)))
 
+(define (edge-drawer p)
+  (if (and (procedure? p) (= (procedure-arity p) 2))
+      p 
+      (λ (node-a node-b) p)))
+
 (define (layout-drawer p)
   (if (and (procedure? p) (= (procedure-arity p) 2))
       p 
@@ -37,14 +42,15 @@
                   (keyword->string 
                    (syntax->datum stx-kw)))))
 
-(define-syntax (define-visualization stx)
+(define-syntax (define-view stx)
   (syntax-parse stx
                 [(dv name:id 
                      (~optional (param:id ...))
                      (~optional (~seq #:nodes nodes:expr)) 
-                     (~optional (~seq #:edges edges:expr))
-                     (~optional (~seq #:view view:expr))
-                     #:layout layout:expr)
+                     (~optional (~seq #:out-edges out-edges:expr))
+                     (~optional (~seq #:node-view node-view:expr))
+                     (~optional (~seq #:edge-view edge-view:expr))
+                     #:layout-view layout:expr)
                  (with-syntax ([(kws ...) (if (attribute param)
                                               (reverse (for/fold ([params '()]) 
                                                          ([p (in-list (syntax->list #'(param ...)))])
@@ -58,12 +64,15 @@
                                  [get-nodes-stx (if (attribute nodes)
                                                     #'(valid-getter nodes)
                                                     #'(valid-getter '()))]
-                                 [get-edges-stx (if (attribute edges)
-                                                    #'(valid-getter edges)
+                                 [get-out-edges-stx (if (attribute out-edges)
+                                                    #'(valid-getter out-edges)
                                                     #'(valid-getter '()))]
-                                 [get-view-stx (if (attribute view)
-                                                   #'(valid-getter view)
-                                                   #'(valid-getter #f))])
+                                 [get-node-view-stx (if (attribute node-view)
+                                                   #'(valid-getter node-view)
+                                                   #'(valid-getter #f))]
+                                 [get-edge-view-stx (if (attribute edge-view)
+                                                        #'(edge-drawer edge-view)
+                                                        #'(edge-drawer #f))])
                      #'(define-syntax (name sx)
                          (define-splicing-syntax-class keyword-arg 
                            #:description "keyword argument"
@@ -79,67 +88,38 @@
                                        [(_ kws ...)                         
                                         #'(λ (data)
                                             (parameterize ([current-visualization-data data])
-                                              (define nds (map (λ (v) (node v '() #f)) (get-nodes-stx data)))
+                                              (define nds (map (λ (v) (node v '() '())) (get-nodes-stx data)))
                                               (for ([n (in-list nds)])
                                                 (define nd (node-data n))
                                                 (parameterize ([current-node-data nd])
-                                                  (set-node-connections! n (find-nodes (get-edges-stx nd) nds))
-                                                  (set-node-view! n (get-view-stx nd))))
-                                              (visualization `name 
-                                                             nds
-                                                             ((layout-drawer layout) data nds))))]))))]))
+                                                  (set-node-out-edges! n (find-nodes (get-out-edges-stx nd) nds))
+                                                  (set-node-view-drawer! n (get-node-view-stx nd)))) 
+                                              ((layout-drawer layout) data nds)
+                                              #;(view `name 
+                                                    nds
+                                                    ((layout-drawer layout) data nds))))]))))]))
 
-;Future stuff
-(define-syntax (barricades stx) 
-  (syntax-case stx ()
-    [(barricades ft) #'(future-barricades ft)]
-    [_ #'(future-barricades (current-node-data))]))
-
-(define-syntax (allocs stx)
-  (syntax-case stx ()
-    [(allocs ft) #'(future-allocs ft)]
-    [_ #'(future-allocs (current-node-data))]))
-
-(define-syntax (spawned-futures stx)
-  (syntax-case stx ()
-    [(spawned-futures ft) #'(future-spawned-futures ft)]
-    [_ #'(future-spawned-futures (current-node-data))]))
-
-(define-syntax (real-time stx)
-  (syntax-case stx ()
-    [(real-time ft) #'(future-real-time ft)]
-    [_ #'(future-real-time (current-node-data))]))
-
-;Thread stuff
-(define-syntax (all-events stx)
-  (syntax-case stx ()
-    [(all-events thd) #'(thread-all-events thd)]
-    [_ #'(thread-all-events (current-visualization-data))]))
-
-;Event stuff
-(define-syntax (previous-event stx)
-  (syntax-case stx ()
-    [(previous-event evt) #'(event-previous-event thd)]
-    [_ #'(event-previous-event (current-node-data))]))
-
-;Execution stuff
-(define-syntax (all-futures stx)
-  (syntax-case stx ()
-    [(all-futures vd) #'(execution-all-futures vd)]
-    [_ #'(execution-all-futures (current-visualization-data))]))
-
-(define-syntax (execution-start-time stx)
-  (syntax-case stx ()
-    [(execution-start-time exec) #'(exec-start-time exec)]
-    [_ #'(exec-start-time (current-visualization-data))]))
-
-(define-syntax (execution-end-time stx)
-  (syntax-case stx ()
-    [(execution-start-time exec) #'(exec-end-time exec)]
-    [_ #'(exec-end-time (current-visualization-data))]))
-
-(define (tree-layout data nodes)
+(define (tree data nodes)
   42)
+
+(define (stack #:orientation [orientation 'vertical]
+               #:margin [margin 0])
+  (λ (data nodes)
+    (case orientation
+      [(vertical) 
+       (apply vl-append 
+              (cons margin 
+                    (map (λ (n) (node-view-drawer n)) nodes)))]
+      [(horizontal) 
+       (apply htl-append
+              (cons margin
+                    (map (λ (n) (node-view-drawer n)) nodes)))])))
+
+(define (hierarchical-list data nodes)
+  0)
+
+(define (elastic-timeline data nodes)
+  0)
 
 ;(define-visualization summary-view (+ 1 2))
 
@@ -156,65 +136,73 @@
     [(auto) #t]
     [else #f]))
 
-(define-visualization circle (diameter color)
-  #:layout (λ (vis-data nodes)
-             (colorize (filled-ellipse diameter diameter) color)))
+;Circle view
+(define-view circle (diameter color)
+  #:layout-view (λ (vis-data nodes)
+                  (colorize (filled-ellipse diameter diameter) color)))
 
-(define-visualization rect (width height color text)
-  #:layout (λ (vis-data nodes)
-             (cond 
-               [text 
-                (define t (pict-text text))
-                (define r (colorize (filled-rectangle (if (auto? width)
-                                                          (pict-width t)
-                                                          width)
-                                                      (if (auto? height)
-                                                          (pict-height t)
-                                                          height))
-                                    color))
-                (cc-superimpose r t)]
-               [else
-                (cond 
-                  [(or (auto? width) (auto? height))
-                   (error 'rect "Width/height cannot be auto if container is empty.")]
-                  [else
-                   (colorize (filled-rectangle width height) color)])])))
+;Rectangle view
+;(define-visualization rect (width height color [text #f])  ??
+(define-view rect (width height back-color fore-color text)
+  #:layout-view 
+  (λ (vis-data nodes)
+    (cond 
+      [text 
+       (define t (colorize (pict-text (format "~a" text)) fore-color))
+       (define r (colorize (filled-rectangle (if (auto? width)
+                                                 (pict-width t)
+                                                 width)
+                                             (if (auto? height)
+                                                 (pict-height t)
+                                                 height))
+                           back-color))
+       (cc-superimpose r t)]
+      [else
+       (cond 
+         [(or (auto? width) (auto? height))
+          (error 'rect "Width/height cannot be auto if container is empty.")]
+         [else
+          (colorize (filled-rectangle width height) back-color)])])))
              
 ;The left-hand hierlist view with barricade/sync/gc items
-#;(define-visualization summary-view
+#;(define-view summary-view
   #:nodes (append (list "Blocks" "Syncs" "GC's")
                   all-unsafe-primitives)
-  #:edges (λ (node)
+  #:out-edges (λ (node)
             (case (node-data node)
               ["Blocks" all-barricade-primitives]
               ["Syncs" all-sync-primitives]
               ["GC's" all-gcs]
               [else '()]))
-  #:view to-string
-  #:layout hierarchical-list)
+  #:node-view to-string
+  #:layout-view hierarchical-list)
 
-#;(define-visualization creation-graph
-  #:nodes all-futures
-  #:edges spawned-futures
-  #:view (rect #:width (length barricades)
-               #:height real-time
-               #:color (if (zero? (length allocs)) "blue" "red"))
-  #:layout tree-layout)
+(define-view creation-graph
+  #:nodes exec-all-futures
+  #:out-edges future-spawned-futures
+  #:node-view (λ (ft) 
+                ((rect #:width (max 10 (length (future-barricades ft)))
+                       #:height (* (future-real-time ft) 10)
+                       #:back-color (if (zero? (length (future-allocs ft))) "blue" "red")
+                       #:fore-color "white"
+                       #:text (future-id ft)) ft))
+  #:edge-view (λ (in out) #f)
+  #:layout-view #;tree (stack #:orientation 'vertical #:margin 10))
 
 #;(define-visualization thread-timeline
   #:nodes all-events
-  #:edges (list previous-event next-event)
-  #:view (circle #:width 20
-                 #:height 20
-                 #:color "green")
+  #:out-edges (list previous-event next-event)
+  #:node-shape (circle #:diameter 20
+                 #:color "green"
+                 #:text #f)
   #:layout elastic-timeline)
 
-#;(define-visualization execution-timeline
+#;(define-view execution-timeline
   #:nodes all-threads
-  #:view thread-timeline
-  #:layout (stack #:orientation 'vertical))
+  #:node-view thread-timeline
+  #:layout-view (stack #:orientation 'vertical))
 
-#;(define-visualization util-history 
+#;(define-view util-history 
     #:nodes (λ (exec) 
               (define SAMPLES 100)
               (define interval (/ (- execution-end-time execution-start-time)
@@ -226,13 +214,13 @@
                           (cons (cons cur-time (+ cur-time interval))
                                 samples))))
               samples)
-    #:view (λ (node) 
+    #:node-view (λ (node) 
              (define d (node-data node))
              (rect #:width 'auto
                  #:height 'auto
                  #:color "blue" 
                  #:text (format "~a - ~a" (car d) (cdr d))))
-    #:layout (stack #:orientation 'horizontal))
+    #:layout-view (stack #:orientation 'horizontal))
                   
                 
               
@@ -245,8 +233,8 @@
                        (future 2 20.0 '() '() '() '())
                        (future 3 10.0 '(4) '() '() '())
                        (future 4 25.0 '() '() '() '()))))
-;((creation-graph) ex)
-;((rect #:width 300 #:height 400 #:color "red") #f)                            
+((creation-graph) ex)
+;((rect #:width 300 #:height 400 #:color "red" #:text "foo") #f)                            
 
 
 
