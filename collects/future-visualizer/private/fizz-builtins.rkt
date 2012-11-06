@@ -19,7 +19,7 @@
   (define w (pict-width node-view))
   (define h (pict-height node-view))
   (cond 
-    [(empty? (node-out-edges parent))
+    [(null? (node-out-edges parent))
      (define nx (+ margin x))
      (define ny (+ margin y))
      (define xe (+ nx w))
@@ -31,7 +31,7 @@
     [else
      (define child-y (+ y h))
      (define parenty (+ y margin))
-     (define first-child (edge-head-node (first (node-out-edges parent))))
+     (define first-child (edge-head-node (car (node-out-edges parent))))
      (cond 
        [(= 1 (length (node-out-edges parent))) ;Align parent and child vertically
         (define-values (cmx cmy) (tree/private first-child
@@ -42,7 +42,7 @@
                                                my))
         (define-values (cx _) (control-point first-child 'center 'top))
         (define nx (max (- cx (/ w 2)) (+ x margin)))
-        (define ny (+ padding y))
+        (define ny (+ margin y))
         (define xe (+ nx w))
         (define ye (+ ny h))
         (set-node-x! parent nx)
@@ -57,7 +57,8 @@
                                                    xacc
                                                    (+ parenty h)
                                                    mx
-                                                   my))))
+                                                   my))
+            (values (max xacc cmx) (max yacc cmy))))
         (define xmin (node-x first-child))
         (define xmax cmx)
         (define nx (- (+ xmin (/ (- xmax xmin) 2))
@@ -77,7 +78,7 @@
                   0 
                   0
                   0 
-                  0))
+                  0)))
 
 (define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
