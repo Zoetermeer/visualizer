@@ -1,4 +1,5 @@
 #lang racket/base
+(require (only-in racket/match match-define))
 (provide current-visualization
          current-visualization-data
          current-node-data
@@ -6,34 +7,63 @@
          (struct-out node)
          node-width
          node-height
+         node-origin-x
+         node-origin-y
          control-point
          (struct-out edge)
          (struct-out exec)
          (struct-out future)
          (struct-out thread)
-         (struct-out event))
+         (struct-out event)
+         (struct-out rect)
+         auto?)
 
-(struct view (name nodes layout) #:transparent)
+(struct rect (x y w h) #:transparent)
+(struct view (name ;symbol
+              data ;any
+              nodes ;(listof node)
+              layout-drawer ;(any (listof node) viewable-region -> pict)
+              scale-to-canvas?) ;bool 
+  #:transparent)
 (struct node (data 
               [in-edges #:mutable] ;(listof edge)
               [out-edges #:mutable] ;(listof edge)
               [view-drawer #:mutable #:auto] ;(any -> pict)
-              [x #:mutable #:auto] ;exact-nonnegative-integer
-              [y #:mutable #:auto]) ;exact-nonnegative-integer
+              [view-pict #:mutable #:auto]
+              [bounds #:mutable #:auto]) ;rect
   #:transparent)
 
+(define (node-origin node)
+  (values (rect-x (node-bounds node))
+          (rect-y (node-bounds node))))
+
+(define (node-origin-x node)
+  (rect-x (node-bounds node)))
+
+(define (node-origin-y node)
+  (rect-y (node-bounds node)))
+
 (define (node-width node) 
-  0)
+  (rect-w (node-bounds node)))
 
 (define (node-height node) 
-  0)
+  (rect-h (node-bounds node)))
 
 ;;control-point : node symbol symbol -> (values uint uint)
-(define (control-point node horiz vert) (values 0 0))
+(define (control-point node horiz vert)
+  (match-define (rect nx ny nw nh) (node-bounds node))
+  (values (case horiz
+            [(left) nx]
+            [(center) (+ nx (/ nw 2))]
+            [(right) (+ nx nw)])
+          (case vert
+            [(top) ny]
+            [(center) (+ ny (/ nh 2))]
+            [(bottom) (+ ny nh)])))
 
 (struct edge (tail-node ;start node  (tail-node -----> head-node)
               head-node ;end node
-              [view-drawer #:mutable #:auto]) ;(node node -> pict)
+              [view-drawer #:mutable]) ;(node node -> pict)
   #:transparent)
 
 (struct exec (start-time end-time all-futures))
@@ -44,3 +74,17 @@
 (define current-visualization (make-parameter #f))
 (define current-visualization-data (make-parameter #f))
 (define current-node-data (make-parameter #f))
+
+;;auto? : any -> boolean
+(define (auto? v)
+  (case v
+    [(auto) #t]
+    [else #f]))
+
+(define (absolute? v)
+  (case v
+    [(abs n) #t]
+    [(number? v) #t]
+    [(pct? v) #f]
+    [else 
+     (error 'absolute? "expected abs, number, or rel, but got ~a" v)]))
