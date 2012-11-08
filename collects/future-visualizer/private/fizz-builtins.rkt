@@ -130,16 +130,16 @@
 
 (define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
-  (λ (data nodes)
+  (λ (data nodes vregion)
     (case orientation
       [(vertical) 
        (apply vl-append 
               (cons margin 
-                    (map (λ (n) (node-view-pict n)) nodes)))]
+                    (map (λ (n) ((node-view-drawer n))) nodes)))]
       [(horizontal) 
        (apply htl-append
               (cons margin
-                    (map (λ (n) (node-view-pict n)) nodes)))])))
+                    (map (λ (n) ((node-view-drawer n))) nodes)))])))
 
 (define (hierarchical-list data nodes)
   0)
