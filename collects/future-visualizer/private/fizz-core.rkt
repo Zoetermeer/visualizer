@@ -15,8 +15,7 @@
          (struct-out future)
          (struct-out thread)
          (struct-out event)
-         (struct-out rect)
-         auto?)
+         (struct-out rect))
 
 (struct rect (x y w h) #:transparent)
 (struct view (name ;symbol
@@ -74,17 +73,3 @@
 (define current-visualization (make-parameter #f))
 (define current-visualization-data (make-parameter #f))
 (define current-node-data (make-parameter #f))
-
-;;auto? : any -> boolean
-(define (auto? v)
-  (case v
-    [(auto) #t]
-    [else #f]))
-
-(define (absolute? v)
-  (case v
-    [(abs n) #t]
-    [(number? v) #t]
-    [(pct? v) #f]
-    [else 
-     (error 'absolute? "expected abs, number, or rel, but got ~a" v)]))

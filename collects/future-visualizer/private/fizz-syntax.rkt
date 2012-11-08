@@ -74,7 +74,6 @@
     (for ([n (in-list nds)])
       (define nd (node-data n))
       (set-node-view-drawer! n (λ () (node-view nd vregion)))
-      (printf "setting node drawer\n")
       (define out-nodes (find-nodes (out-edges nd) nds))
       (for ([o-n (in-list out-nodes)])
         (define e (edge n o-n (λ () (edge-view n o-n vregion))))

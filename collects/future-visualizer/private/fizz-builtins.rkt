@@ -3,6 +3,7 @@
                     [circle pict-circle]
                     [rectangle pict-rectangle]
                     [text pict-text])
+         (only-in racket/match match)
          "fizz-syntax.rkt"
          "fizz-core.rkt")
 (provide tree
@@ -10,7 +11,25 @@
          hierarchical-list
          elastic-timeline
          circle
-         rectangle)
+         rectangle
+         edge-line
+         (struct-out auto))
+
+(struct auto (margin) #:transparent)
+
+;;auto? : any -> boolean
+(define (is-auto? v)
+  (match v
+    [(auto _) #t]
+    ['auto #t]
+    [else #f]))
+
+(define (abs-or-auto-for child get-size want-size)
+  (if (is-auto? want-size)
+      (+ (get-size child) 
+         (* 2 (auto-margin want-size)))
+      want-size))
+  
 
 ;BUILT-IN LAYOUT DRAWERS
 ;-----------------------
@@ -84,15 +103,7 @@
                             0
                             vregion))
         (values (max maxx mx)
-                (max maxy my))))
-    ;;REMOVEME
-    (for ([n (in-list nodes)])
-      (printf "Node: ~a, out edges=~a, in edges=~a, bounds=~a\n" 
-              (node-data n)
-              (length (node-out-edges n))
-              (length (node-in-edges n))
-              (node-bounds n)))
-    
+                (max maxy my))))    
     ;Draw three picts: 
     ;1) Blank with nodes superimposed
     ;2) Blank with edges superimposed
@@ -138,31 +149,64 @@
 
 ;BUILT-IN VIEWS
 ;--------------
-
 ;Circle view 
-(define-view circle (diameter color)
-  #:layout-view (λ (vis-data nodes vregion)
-                  (colorize (filled-ellipse diameter diameter) color)))
+(define (circle #:diameter diameter
+                #:back-color back-color
+                #:fore-color [fore-color "black"]
+                #:text [text #f])
+  (build-view 'circle
+              #:layout-view
+              (λ (vis-data nodes vregion)
+                (cond 
+                  [text
+                   (define t (colorize (pict-text (format "~a" text)) fore-color))
+                   (define diam (abs-or-auto-for t pict-width diameter))
+                   (define c (colorize (filled-ellipse diam diam) back-color))
+                   (cc-superimpose c t)]
+                  [else
+                   (colorize (filled-ellipse diameter diameter) back-color)]))))
+                   
 
 ;Rectangle view
-;(define-view rect (width height color [text #f])  (optional arguments?)
-(define-view rectangle (width height back-color fore-color text)
-  #:layout-view 
-  (λ (vis-data nodes vregion)
-    (cond 
-      [text 
-       (define t (colorize (pict-text (format "~a" text)) fore-color))
-       (define r (colorize (filled-rectangle (if (auto? width)
-                                                 (pict-width t)
-                                                 width)
-                                             (if (auto? height)
-                                                 (pict-height t)
-                                                 height))
-                           back-color))
-       (cc-superimpose r t)]
-      [else
-       (cond 
-         [(or (auto? width) (auto? height))
-          (error 'rect "Width/height cannot be auto if container is empty.")]
-         [else
-          (colorize (filled-rectangle width height) back-color)])])))
+(define (rectangle #:width width
+                   #:height height
+                   #:back-color back-color
+                   #:fore-color [fore-color "black"]
+                   #:text [text #f])
+  (build-view 'rectangle
+              #:layout-view 
+              (λ (vis-data nodes vregion)
+                (cond 
+                  [text 
+                   (define t (colorize (pict-text (format "~a" text)) fore-color))
+                   (define r (colorize (filled-rectangle (if (auto? width)
+                                                             (pict-width t)
+                                                             width)
+                                                         (if (auto? height)
+                                                             (pict-height t)
+                                                             height))
+                                       back-color))
+                   (cc-superimpose r t)]
+                  [else
+                   (cond 
+                     [(or (auto? width) (auto? height))
+                      (error 'rect "Width/height cannot be auto if container is empty.")]
+                     [else
+                      (colorize (filled-rectangle width height) back-color)])]))))
+
+(define (edge-line #:style [style 'solid]
+                   #:width [width 1.0]
+                   #:color [color "black"])
+  (λ (tail head vregion)
+    (define-values (tcx tcy) (control-point tail 'center 'center))
+    (define-values (hcx hcy) (control-point head 'center 'center))
+    (define dx (- hcx tcx))
+    (define dy (- hcy tcy))
+    (define vw (build-view 'edge-line
+                           #:layout-view 
+                           (λ (vis-data nodes vregion)
+                             (linewidth width
+                                        (linestyle style
+                                                   (colorize (pip-line dx dy 0)
+                                                             color))))))
+    (vw #f vregion)))
