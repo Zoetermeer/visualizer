@@ -8,8 +8,7 @@
                      "fizz-core.rkt"
                      (only-in racket/list remove-duplicates))
          "display.rkt")
-(provide define-view
-         (contract-out 
+(provide (contract-out 
           [build-view (->*
                        (symbol? 
                         #:layout-view (any/c (listof node?) (or/c viewable-region? #f) . -> . pict?))
@@ -17,7 +16,8 @@
                         #:out-edges (any/c . -> . (listof any/c))
                         #:node-view (any/c (or/c viewable-region? #f) . -> . pict?)
                         #:edge-view (node? node? (or/c viewable-region? #f) . -> . pict?)
-                        #:scale-to-canvas? boolean?)                        
+                        #:scale-to-canvas? boolean?)
+                       #:rest (listof interaction?)
                        (any/c (or/c viewable-region? #f) . -> . pict?))]))
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
@@ -68,12 +68,14 @@
                     #:node-view [node-view (λ (data vregion) #f)]
                     #:edge-view [edge-view (λ (tail head vregion) #f)]
                     #:scale-to-canvas? [scale-to-canvas? #f]
-                    #:layout-view layout-view)
+                    #:layout-view layout-view 
+                    . interactions)
   (λ (data vregion)
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
     (for ([n (in-list nds)])
       (define nd (node-data n))
       (set-node-view-drawer! n (λ () (node-view nd vregion)))
+      (define outs (out-edges nd))
       (define out-nodes (find-nodes (out-edges nd) nds))
       (for ([o-n (in-list out-nodes)])
         (define e (edge n o-n (λ () (edge-view n o-n vregion))))
@@ -81,7 +83,7 @@
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
     (layout-view data nds vregion)))
 
-(define-syntax (define-view stx)
+#;(define-syntax (define-view stx)
   (syntax-parse stx
                 [(dv name:id 
                      (~optional (param:id ...+))

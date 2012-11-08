@@ -92,6 +92,8 @@
 (define (tree #:margin margin) 
   (λ (data nodes vregion)
     (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
+    (when (null? roots)
+      (error 'tree "No root nodes found!"))
     (define-values (maxx maxy)
       (for/fold ([maxx 0] [maxy 0]) ([r (in-list roots)])
         (define-values (mx my) 
@@ -153,6 +155,8 @@
 (define (circle #:diameter diameter
                 #:back-color back-color
                 #:fore-color [fore-color "black"]
+                #:stroke-width [stroke-width 0]
+                #:stroke-color [stroke-color "black"]
                 #:text [text #f])
   (build-view 'circle
               #:layout-view
@@ -161,10 +165,10 @@
                   [text
                    (define t (colorize (pict-text (format "~a" text)) fore-color))
                    (define diam (abs-or-auto-for t pict-width diameter))
-                   (define c (colorize (filled-ellipse diam diam) back-color))
+                   (define c (colorize (disk diam) back-color))
                    (cc-superimpose c t)]
                   [else
-                   (colorize (filled-ellipse diameter diameter) back-color)]))))
+                   (colorize (disk diameter) back-color)]))))
                    
 
 ;Rectangle view
@@ -172,28 +176,38 @@
                    #:height height
                    #:back-color back-color
                    #:fore-color [fore-color "black"]
+                   #:stroke-thickness [stroke-thickness 0]
+                   #:stroke-color [stroke-color "black"]
                    #:text [text #f])
   (build-view 'rectangle
               #:layout-view 
               (λ (vis-data nodes vregion)
+                (define (draw-rect w h strokew strokec)
+                  (cond 
+                    [(zero? strokew)
+                     (colorize (filled-rectangle w h) back-color)]
+                    [else
+                     (define inner (colorize (filled-rectangle (- w (* strokew 2)) 
+                                                               (- h (* strokew 2)))
+                                             back-color))
+                     (define outer (colorize (filled-rectangle w h) strokec))
+                     (cc-superimpose outer inner)]))                  
                 (cond 
                   [text 
                    (define t (colorize (pict-text (format "~a" text)) fore-color))
-                   (define r (colorize (filled-rectangle (if (auto? width)
-                                                             (pict-width t)
-                                                             width)
-                                                         (if (auto? height)
-                                                             (pict-height t)
-                                                             height))
-                                       back-color))
+                   (define r (draw-rect (abs-or-auto-for t pict-width width)
+                                        (abs-or-auto-for t pict-height height)
+                                        stroke-thickness
+                                        stroke-color))
                    (cc-superimpose r t)]
                   [else
                    (cond 
                      [(or (auto? width) (auto? height))
                       (error 'rect "Width/height cannot be auto if container is empty.")]
                      [else
-                      (colorize (filled-rectangle width height) back-color)])]))))
+                      (draw-rect width height stroke-thickness stroke-color)])]))))
 
+;Convenience view for edge lines in graphs
 (define (edge-line #:style [style 'solid]
                    #:width [width 1.0]
                    #:color [color "black"])

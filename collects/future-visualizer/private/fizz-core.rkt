@@ -11,6 +11,7 @@
          node-origin-y
          control-point
          (struct-out edge)
+         (struct-out interaction)
          (struct-out exec)
          (struct-out future)
          (struct-out thread)
@@ -64,6 +65,8 @@
               head-node ;end node
               [view-drawer #:mutable]) ;(node node -> pict)
   #:transparent)
+
+(struct interaction (event view-drawer))
 
 (struct exec (start-time end-time all-futures))
 (struct future (id real-time spawned-futures barricades syncs allocs) #:transparent)
