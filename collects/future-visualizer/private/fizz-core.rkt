@@ -23,6 +23,8 @@
               data ;any
               nodes ;(listof node)
               layout-drawer ;(any (listof node) viewable-region -> pict)
+              layout-pict ; (or pict #f)
+              x-coordinate-map ; (or interval-map #f)
               scale-to-canvas?) ;bool 
   #:transparent)
 (struct node (data 
