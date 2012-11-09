@@ -92,8 +92,7 @@
                 (max ye my))])]))
 
 (define (tree #:margin margin) 
-  (λ (vw)
-    (λ (vregion)
+  (λ (vw vregion)
       (define data (view-data vw))
       (define nodes (view-nodes vw))
       (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
@@ -131,14 +130,13 @@
       (pin-over (pin-over ep 0 0 np)
                 0
                 0
-                (blank maxx maxy)))))
+                (blank maxx maxy))))
                            
     
 
 (define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
-  (λ (vw)
-    (λ (vregion)
+  (λ (vw vregion)
       (define nodes (view-nodes vw))
       (case orientation
         [(vertical) 
@@ -148,19 +146,15 @@
         [(horizontal) 
          (apply htl-append
                 (cons margin
-                      (map (λ (n) ((node-view-drawer n))) nodes)))]))))
+                      (map (λ (n) ((node-view-drawer n))) nodes)))])))
 
-(define (hierarchical-list vw)
-  (λ (vregion)
-    0))
+(define (hierarchical-list vw vregion) 0)
 
-(define (elastic-timeline vw)
-  (λ (vregion)
-    0))
+(define (elastic-timeline vw vregion)
+    0)
 
 (define (menubar #:margin [margin 10] #:items items)
-  (λ (vw)
-    (λ (vregion)
+  (λ (vw vregion)
       (define menu (apply hc-append 
                           (cons margin
                                 (map (λ (i) (pict-text (format "~a" i))) items))))
@@ -168,7 +162,7 @@
                        (viewable-region-height vregion))
                 0
                 0
-                menu))))
+                menu)))
                               
                               
 ;BUILT-IN VIEWS
@@ -182,8 +176,7 @@
                 #:text [text #f])
   (build-view 'circle
               #:layout
-              (λ (vw)
-                (λ (vregion)
+              (λ (vw vregion)
                   (cond 
                     [text
                      (define t (colorize (pict-text (format "~a" text)) fore-color))
@@ -191,7 +184,7 @@
                      (define c (colorize (disk diam) back-color))
                      (cc-superimpose c t)]
                     [else
-                     (colorize (disk diameter) back-color)])))))
+                     (colorize (disk diameter) back-color)]))))
                    
 
 ;Rectangle view
@@ -204,8 +197,7 @@
                    #:text [text #f])
   (build-view 'rectangle
               #:layout
-              (λ (vw)
-                (λ (vregion)
+              (λ (vw vregion)
                   (define (draw-rect w h strokew strokec)
                     (cond 
                       [(zero? strokew)
@@ -229,7 +221,7 @@
                        [(or (auto? width) (auto? height))
                         (error 'rect "Width/height cannot be auto if container is empty.")]
                        [else
-                        (draw-rect width height stroke-thickness stroke-color)])])))))
+                        (draw-rect width height stroke-thickness stroke-color)])]))))
 
 ;Convenience view for edge lines in graphs
 (define (edge-line #:style [style 'solid]
@@ -238,8 +230,7 @@
   (λ (tail head)
     (define vw (build-view 'edge-line
                            #:layout
-                           (λ (vw) 
-                             (λ (vregion)
+                           (λ (vw vregion)
                                (define-values (tcx tcy) (control-point tail 'center 'center))
                                (define-values (hcx hcy) (control-point head 'center 'center))
                                (define dx (- hcx tcx))
@@ -247,5 +238,5 @@
                                (linewidth width
                                           (linestyle style
                                                      (colorize (pip-line dx dy 0)
-                                                               color)))))))
+                                                               color))))))
     (vw #f)))
