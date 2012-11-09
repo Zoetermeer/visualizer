@@ -6,14 +6,15 @@
 (provide (contract-out 
           [build-view (->*
                        (symbol? 
-                        #:layout-view (any/c (listof node?) (or/c viewable-region? #f) . -> . pict?))
+                        #:layout (or/c (view? . -> . ((or/c viewable-region? #f) . -> . pict?))
+                                       (listof (view? . -> . ((or/c viewable-region? #f) . -> . pict?)))))
                        (#:nodes (any/c . -> . (listof any/c))
                         #:out-edges (any/c . -> . (listof any/c))
-                        #:node-view (any/c (or/c viewable-region? #f) . -> . pict?)
-                        #:edge-view (node? node? (or/c viewable-region? #f) . -> . pict?)
+                        #:node-view (any/c . -> . view?)
+                        #:edge-view (node? node? . -> . view?)
                         #:scale-to-canvas? boolean?)
                        #:rest (listof interaction?)
-                       (any/c (or/c viewable-region? #f) . -> . pict?))]))
+                       (any/c . -> . view?))]))
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
 ;to some element of vs.
@@ -27,33 +28,34 @@
 (define (build-view name 
                     #:nodes [nodes (λ (data) '())]
                     #:out-edges [out-edges (λ (node-data) '())]
-                    #:node-view [node-view-builder (λ (data vregion) #f)]
-                    #:edge-view [edge-view-builder (λ (tail head vregion) #f)]
+                    #:node-view [node-view-builder (λ (data) #f)]
+                    #:edge-view [edge-view-builder (λ (tail head) #f)]
                     #:scale-to-canvas? [scale-to-canvas? #f]
-                    #:layout-view layout-view-builder
+                    #:layout layouts
                     . interactions)
-  (λ (data vregion)
+  (λ (data)
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
     (for ([n (in-list nds)])
       (define nd (node-data n))
-      (set-node-view-drawer! n (λ () (view-layout-drawer (node-view-builder nd vregion))))
+      (set-node-view-drawer! n (car (view-layout-drawers (node-view-builder nd))))
       (define outs (out-edges nd))
       (define out-nodes (find-nodes (out-edges nd) nds))
       (for ([o-n (in-list out-nodes)])
-        (define e (edge n o-n (λ () (view-layout-drawer (edge-view-builder n o-n vregion)))))
+        (define e (edge n o-n (car (view-layout-drawers (edge-view-builder n o-n)))))
         (set-node-out-edges! n (cons e (node-out-edges n)))
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
     ;layout-view is expected to update nodes' positional information
-    (define drawer (view-layout-drawer layout-view-builder))
-    (define pct (drawer data nds vregion))
-    (view name
-          nodes
-          data
-          drawer
-          pct
-          #f
-          scale-to-canvas?)))
-
+    #;(define pct (drawer data nds vregion))
+    (define vw (view name
+                     data
+                     nds
+                     #f ;drawer
+                     #f
+                     scale-to-canvas?))
+    (define layout-lst (if (list? layouts) layouts (list layouts)))
+    (set-view-layout-drawers! vw (map (λ (dr) (dr vw)) layout-lst))
+    vw))
+  
 
 
 

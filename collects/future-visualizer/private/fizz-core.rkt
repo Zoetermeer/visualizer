@@ -9,6 +9,8 @@
          node-height
          node-origin-x
          node-origin-y
+         node-x-extent
+         node-y-extent
          control-point
          (struct-out edge)
          (struct-out interaction)
@@ -22,10 +24,11 @@
 (struct view (name ;symbol
               data ;any
               nodes ;(listof node)
-              layout-drawer ;(any (listof node) viewable-region -> pict)
+              [layout-drawers #:mutable] ;(listof (viewable-region -> pict))
               layout-pict ; (or pict #f)
-              x-coordinate-map ; (or interval-map #f)
-              scale-to-canvas?) ;bool 
+              scale-to-canvas? ;bool
+              [hovered-node #:mutable #:auto]
+              [selected-node #:mutable #:auto])
   #:transparent)
 (struct node (data 
               [in-edges #:mutable] ;(listof edge)
@@ -45,6 +48,14 @@
 (define (node-origin-y node)
   (rect-y (node-bounds node)))
 
+(define (node-x-extent node)
+  (+ (node-origin-x node)
+     (node-width node)))
+
+(define (node-y-extent node)
+  (+ (node-origin-y node)
+     (node-height node)))
+
 (define (node-width node) 
   (rect-w (node-bounds node)))
 
@@ -53,6 +64,8 @@
 
 ;;control-point : node symbol symbol -> (values uint uint)
 (define (control-point node horiz vert)
+  (unless (node-bounds node)
+    (error 'control-point "bounds undefined for node: ~a" node))
   (match-define (rect nx ny nw nh) (node-bounds node))
   (values (case horiz
             [(left) nx]

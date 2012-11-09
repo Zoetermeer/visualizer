@@ -5,11 +5,13 @@
                     [text pict-text])
          (only-in racket/match match)
          "fizz-syntax.rkt"
-         "fizz-core.rkt")
+         "fizz-core.rkt"
+         "display.rkt")
 (provide tree
          stack
          hierarchical-list
          elastic-timeline
+         menubar
          circle
          rectangle
          edge-line
@@ -34,7 +36,7 @@
 ;BUILT-IN LAYOUT DRAWERS
 ;-----------------------
 (define (set-tree-layout! parent margin x y mx my vregion)
-  (set-node-view-pict! parent ((node-view-drawer parent))) 
+  (set-node-view-pict! parent ((node-view-drawer parent) vregion)) 
   (define w (pict-width (node-view-pict parent)))
   (define h (pict-height (node-view-pict parent)))
   (cond 
@@ -90,65 +92,85 @@
                 (max ye my))])]))
 
 (define (tree #:margin margin) 
-  (λ (data nodes vregion)
-    (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
-    (when (null? roots)
-      (error 'tree "No root nodes found!"))
-    (define-values (maxx maxy)
-      (for/fold ([maxx 0] [maxy 0]) ([r (in-list roots)])
-        (define-values (mx my) 
-          (set-tree-layout! r
-                            margin
-                            maxx 
-                            0
-                            maxx 
-                            0
-                            vregion))
-        (values (max maxx mx)
-                (max maxy my))))    
-    ;Draw three picts: 
-    ;1) Blank with nodes superimposed
-    ;2) Blank with edges superimposed
-    ;3) Background pict (colored square or whatever)
-    ;Then overlay 1 -> 2 -> 3
-    (define-values (np ep) (for/fold ([np (blank maxx maxy)]
-                                     [ep (blank maxx maxy)]) ([n (in-list nodes)])
-                            (define-values (ncx ncy) (control-point n 'center 'center))
-                            (values (pin-over np 
-                                              (node-origin-x n)
-                                              (node-origin-y n)
-                                              (node-view-pict n))
-                                    (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
-                                      (pin-over out-ep
-                                                ncx
-                                                ncy
-                                                ((edge-view-drawer ed)))))))
-    (pin-over (pin-over ep 0 0 np)
-              0
-              0
-              (blank maxx maxy))))
+  (λ (vw)
+    (λ (vregion)
+      (define data (view-data vw))
+      (define nodes (view-nodes vw))
+      (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
+      (when (null? roots)
+        (error 'tree "No root nodes found!"))
+      (define-values (maxx maxy)
+        (for/fold ([maxx 0] [maxy 0]) ([r (in-list roots)])
+          (define-values (mx my) 
+            (set-tree-layout! r
+                              margin
+                              maxx 
+                              0
+                              maxx 
+                              0
+                              vregion))
+          (values (max maxx mx)
+                  (max maxy my))))    
+      ;Draw three picts: 
+      ;1) Blank with nodes superimposed
+      ;2) Blank with edges superimposed
+      ;3) Background pict (colored square or whatever)
+      ;Then overlay 1 -> 2 -> 3
+      (define-values (np ep) (for/fold ([np (blank maxx maxy)]
+                                        [ep (blank maxx maxy)]) ([n (in-list nodes)])
+                               (define-values (ncx ncy) (control-point n 'center 'center))
+                               (values (pin-over np 
+                                                 (node-origin-x n)
+                                                 (node-origin-y n)
+                                                 (node-view-pict n))
+                                       (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
+                                         (pin-over out-ep
+                                                   ncx
+                                                   ncy
+                                                   ((edge-view-drawer ed) vregion))))))
+      (pin-over (pin-over ep 0 0 np)
+                0
+                0
+                (blank maxx maxy)))))
                            
     
 
 (define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
-  (λ (data nodes vregion)
-    (case orientation
-      [(vertical) 
-       (apply vl-append 
-              (cons margin 
-                    (map (λ (n) ((node-view-drawer n))) nodes)))]
-      [(horizontal) 
-       (apply htl-append
-              (cons margin
-                    (map (λ (n) ((node-view-drawer n))) nodes)))])))
+  (λ (vw)
+    (λ (vregion)
+      (define nodes (view-nodes vw))
+      (case orientation
+        [(vertical) 
+         (apply vl-append 
+                (cons margin 
+                      (map (λ (n) ((node-view-drawer n))) nodes)))]
+        [(horizontal) 
+         (apply htl-append
+                (cons margin
+                      (map (λ (n) ((node-view-drawer n))) nodes)))]))))
 
-(define (hierarchical-list data nodes)
-  0)
+(define (hierarchical-list vw)
+  (λ (vregion)
+    0))
 
-(define (elastic-timeline data nodes)
-  0)
+(define (elastic-timeline vw)
+  (λ (vregion)
+    0))
 
+(define (menubar #:margin [margin 10] #:items items)
+  (λ (vw)
+    (λ (vregion)
+      (define menu (apply hc-append 
+                          (cons margin
+                                (map (λ (i) (pict-text (format "~a" i))) items))))
+      (pin-over (blank (viewable-region-width vregion)
+                       (viewable-region-height vregion))
+                0
+                0
+                menu))))
+                              
+                              
 ;BUILT-IN VIEWS
 ;--------------
 ;Circle view 
@@ -159,16 +181,17 @@
                 #:stroke-color [stroke-color "black"]
                 #:text [text #f])
   (build-view 'circle
-              #:layout-view
-              (λ (vis-data nodes vregion)
-                (cond 
-                  [text
-                   (define t (colorize (pict-text (format "~a" text)) fore-color))
-                   (define diam (abs-or-auto-for t pict-width diameter))
-                   (define c (colorize (disk diam) back-color))
-                   (cc-superimpose c t)]
-                  [else
-                   (colorize (disk diameter) back-color)]))))
+              #:layout
+              (λ (vw)
+                (λ (vregion)
+                  (cond 
+                    [text
+                     (define t (colorize (pict-text (format "~a" text)) fore-color))
+                     (define diam (abs-or-auto-for t pict-width diameter))
+                     (define c (colorize (disk diam) back-color))
+                     (cc-superimpose c t)]
+                    [else
+                     (colorize (disk diameter) back-color)])))))
                    
 
 ;Rectangle view
@@ -180,47 +203,49 @@
                    #:stroke-color [stroke-color "black"]
                    #:text [text #f])
   (build-view 'rectangle
-              #:layout-view 
-              (λ (vis-data nodes vregion)
-                (define (draw-rect w h strokew strokec)
+              #:layout
+              (λ (vw)
+                (λ (vregion)
+                  (define (draw-rect w h strokew strokec)
+                    (cond 
+                      [(zero? strokew)
+                       (colorize (filled-rectangle w h) back-color)]
+                      [else
+                       (define inner (colorize (filled-rectangle (- w (* strokew 2)) 
+                                                                 (- h (* strokew 2)))
+                                               back-color))
+                       (define outer (colorize (filled-rectangle w h) strokec))
+                       (cc-superimpose outer inner)]))                  
                   (cond 
-                    [(zero? strokew)
-                     (colorize (filled-rectangle w h) back-color)]
+                    [text 
+                     (define t (colorize (pict-text (format "~a" text)) fore-color))
+                     (define r (draw-rect (abs-or-auto-for t pict-width width)
+                                          (abs-or-auto-for t pict-height height)
+                                          stroke-thickness
+                                          stroke-color))
+                     (cc-superimpose r t)]
                     [else
-                     (define inner (colorize (filled-rectangle (- w (* strokew 2)) 
-                                                               (- h (* strokew 2)))
-                                             back-color))
-                     (define outer (colorize (filled-rectangle w h) strokec))
-                     (cc-superimpose outer inner)]))                  
-                (cond 
-                  [text 
-                   (define t (colorize (pict-text (format "~a" text)) fore-color))
-                   (define r (draw-rect (abs-or-auto-for t pict-width width)
-                                        (abs-or-auto-for t pict-height height)
-                                        stroke-thickness
-                                        stroke-color))
-                   (cc-superimpose r t)]
-                  [else
-                   (cond 
-                     [(or (auto? width) (auto? height))
-                      (error 'rect "Width/height cannot be auto if container is empty.")]
-                     [else
-                      (draw-rect width height stroke-thickness stroke-color)])]))))
+                     (cond 
+                       [(or (auto? width) (auto? height))
+                        (error 'rect "Width/height cannot be auto if container is empty.")]
+                       [else
+                        (draw-rect width height stroke-thickness stroke-color)])])))))
 
 ;Convenience view for edge lines in graphs
 (define (edge-line #:style [style 'solid]
                    #:width [width 1.0]
                    #:color [color "black"])
-  (λ (tail head vregion)
-    (define-values (tcx tcy) (control-point tail 'center 'center))
-    (define-values (hcx hcy) (control-point head 'center 'center))
-    (define dx (- hcx tcx))
-    (define dy (- hcy tcy))
+  (λ (tail head)
     (define vw (build-view 'edge-line
-                           #:layout-view 
-                           (λ (vis-data nodes vregion)
-                             (linewidth width
-                                        (linestyle style
-                                                   (colorize (pip-line dx dy 0)
-                                                             color))))))
-    (vw #f vregion)))
+                           #:layout
+                           (λ (vw) 
+                             (λ (vregion)
+                               (define-values (tcx tcy) (control-point tail 'center 'center))
+                               (define-values (hcx hcy) (control-point head 'center 'center))
+                               (define dx (- hcx tcx))
+                               (define dy (- hcy tcy))
+                               (linewidth width
+                                          (linestyle style
+                                                     (colorize (pip-line dx dy 0)
+                                                               color)))))))
+    (vw #f)))
