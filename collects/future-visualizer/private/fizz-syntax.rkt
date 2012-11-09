@@ -6,8 +6,8 @@
 (provide (contract-out 
           [build-view (->*
                        (symbol? 
-                        #:layout (or/c (view? . -> . ((or/c viewable-region? #f) . -> . pict?))
-                                       (listof (view? . -> . ((or/c viewable-region? #f) . -> . pict?)))))
+                        #:layout (or/c (view? . -> . ((or/c viewable-region? #f) . -> . (or/c pict? #f)))
+                                       (listof (view? . -> . ((or/c viewable-region? #f) . -> . (or/c pict? #f))))))
                        (#:nodes (any/c . -> . (listof any/c))
                         #:out-edges (any/c . -> . (listof any/c))
                         #:node-view (any/c . -> . view?)
@@ -52,7 +52,10 @@
                      #f ;drawer
                      #f
                      scale-to-canvas?))
-    (define layout-lst (if (list? layouts) layouts (list layouts)))
+    ;When defining a view, the last layout specified has
+    ;the highest z-ordering, so reverse the list -- the 
+    ;gui will draw them in order
+    (define layout-lst (if (list? layouts) (reverse layouts) (list layouts)))
     (set-view-layout-drawers! vw (map (λ (dr) (dr vw)) layout-lst))
     vw))
   
