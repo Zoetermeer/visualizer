@@ -12,6 +12,7 @@
          hierarchical-list
          elastic-timeline
          menubar
+         box-at
          circle
          rectangle
          edge-line
@@ -140,13 +141,22 @@
       (define nodes (view-nodes vw))
       (case orientation
         [(vertical) 
-         (apply vl-append 
-                (cons margin 
-                      (map (λ (n) ((node-view-drawer n))) nodes)))]
+         (define node-picts (map (λ (n) 
+                                   ((node-view-drawer n) vregion))
+                                 nodes))
+         (define-values (pct _) (for/fold ([pct (blank (viewable-region-width vregion)
+                                                       (viewable-region-height vregion))]
+                                           [yacc 0]) ([p (in-list node-picts)])
+                                  (values (pin-over pct 
+                                                    0 
+                                                    yacc
+                                                    p)
+                                          (+ yacc (pict-height p) margin))))
+         pct]
         [(horizontal) 
          (apply htl-append
                 (cons margin
-                      (map (λ (n) ((node-view-drawer n))) nodes)))])))
+                      (map (λ (n) ((node-view-drawer n) vregion)) nodes)))])))
 
 (define (hierarchical-list vw vregion) 0)
 
@@ -163,7 +173,15 @@
                 0
                 0
                 menu)))
-                              
+
+(define (box-at x y width height color vregion)
+  (define p (blank (viewable-region-width vregion)
+                   (viewable-region-height vregion)))
+  (pin-over p 
+            x
+            y
+            (colorize (filled-rectangle width height) color)))
+
                               
 ;BUILT-IN VIEWS
 ;--------------
