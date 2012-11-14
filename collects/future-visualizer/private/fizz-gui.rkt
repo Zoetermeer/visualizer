@@ -35,7 +35,8 @@
                                                    0
                                                    layout-p))))
                          p)]
-         [hover-handler (λ (x y vregion) 
+         [hover-handler (λ (x y vregion) #f) 
+          #;(λ (x y vregion) 
                           (define hovered (let loop ([nds (view-nodes vw)])
                                             (cond 
                                               [(empty? nds) #f]

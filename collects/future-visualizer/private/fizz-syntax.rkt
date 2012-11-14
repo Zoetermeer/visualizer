@@ -33,8 +33,6 @@
         (define e (edge n o-n (car (view-layout-drawers (edge-view-builder n o-n)))))
         (set-node-out-edges! n (cons e (node-out-edges n)))
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
-    ;layout-view is expected to update nodes' positional information
-    #;(define pct (drawer data nds vregion))
     (define vw (view name
                      data
                      nds
@@ -46,6 +44,7 @@
     ;gui will draw them in order
     (define layout-lst (if (list? layouts) layouts (list layouts)))
     (set-view-layout-drawers! vw (map (λ (dr) ((curry dr) vw)) layout-lst))
+    (set-view-interaction-drawers! vw interactions)
     vw))
   
 

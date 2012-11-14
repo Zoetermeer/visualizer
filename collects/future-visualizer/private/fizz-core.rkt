@@ -27,8 +27,7 @@
               [layout-drawers #:mutable] ;(listof (viewable-region -> pict))
               layout-pict ; (or pict #f)
               scale-to-canvas? ;bool
-              [hovered-node #:mutable #:auto]
-              [selected-node #:mutable #:auto])
+              [interaction-drawers #:mutable #:auto]) ;(or (listof interaction) #f)
   #:transparent)
 (struct node (data 
               [in-edges #:mutable] ;(listof edge)
@@ -37,6 +36,9 @@
               [view-pict #:mutable #:auto]
               [bounds #:mutable #:auto]) ;rect
   #:transparent)
+;type : symbol
+;handler : (node viewable-region -> pict)
+(struct interaction (type handler) #:transparent)
 
 (define (node-origin node)
   (values (rect-x (node-bounds node))
@@ -80,8 +82,6 @@
               head-node ;end node
               [view-drawer #:mutable]) ;(node node -> pict)
   #:transparent)
-
-(struct interaction (event view-drawer))
 
 (struct profile (start-time end-time all-futures))
 (struct future (id real-time spawned-futures barricades syncs allocs) #:transparent)

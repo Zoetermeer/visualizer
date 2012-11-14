@@ -3,7 +3,7 @@
                     [circle pict-circle]
                     [rectangle pict-rectangle]
                     [text pict-text])
-         (only-in racket/match match)
+         (only-in racket/match match match-define)
          "fizz-syntax.rkt"
          "fizz-core.rkt"
          "display.rkt")
@@ -185,7 +185,14 @@
 
 ;(define (line #:from-x 
 
-                              
+(define (properties-get data . vs)
+  (map (λ (v)
+         (cond 
+           [(and (procedure? v) (= (procedure-arity v) 1))
+            (v data)]
+           [else v]))
+       vs))
+    
 ;BUILT-IN VIEWS
 ;--------------
 ;Circle view 
@@ -194,17 +201,26 @@
                 #:fore-color [fore-color "black"]
                 #:stroke-width [stroke-width 0]
                 #:stroke-color [stroke-color "black"]
-                #:text [text #f])
+                #:text [text #f] 
+                . interactions) 
   (build-view 'circle
               #:layout (λ (vw vregion)
+                         (match-define `(,diam ,bc ,fc ,stw ,stc ,txt) 
+                           (properties-get (view-data vw) diameter
+                                                          back-color
+                                                          fore-color
+                                                          stroke-width
+                                                          stroke-color
+                                                          text))
                          (cond 
-                           [text
-                            (define t (colorize (pict-text (format "~a" text)) fore-color))
-                            (define diam (abs-or-auto-for t pict-width diameter))
-                            (define c (colorize (disk diam) back-color))
+                           [txt
+                            (define t (colorize (pict-text (format "~a" txt)) fc))
+                            (define the-diam (abs-or-auto-for t pict-width diam))
+                            (define c (colorize (disk the-diam) bc))
                             (cc-superimpose c t)]
                            [else
-                            (colorize (disk diameter) back-color)]))))
+                            (colorize (disk diam) bc)]))
+              interactions))
 
 
 ;Rectangle view
