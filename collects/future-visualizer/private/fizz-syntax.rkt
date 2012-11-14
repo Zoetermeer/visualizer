@@ -3,18 +3,7 @@
          (only-in slideshow/pict pict?)
          "fizz-core.rkt"
          "display.rkt")
-(provide (contract-out 
-          [build-view (->*
-                       (symbol? 
-                        #:layout (or/c (view? (or/c viewable-region? #f) . -> . (or/c pict? #f))
-                                       (listof (view? (or/c viewable-region? #f) . -> . (or/c pict? #f)))))
-                       (#:nodes (any/c . -> . (listof any/c))
-                        #:out-edges (any/c . -> . (listof any/c))
-                        #:node-view (any/c . -> . view?)
-                        #:edge-view (node? node? . -> . view?)
-                        #:scale-to-canvas? boolean?)
-                       #:rest (listof interaction?)
-                       (any/c . -> . view?))]))
+(provide build-view)
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
 ;to some element of vs.
