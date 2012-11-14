@@ -35,8 +35,7 @@
                                                    0
                                                    layout-p))))
                          p)]
-         [hover-handler (λ (x y vregion) #f) 
-          #;(λ (x y vregion) 
+         [hover-handler (λ (x y vregion) 
                           (define hovered (let loop ([nds (view-nodes vw)])
                                             (cond 
                                               [(empty? nds) #f]
@@ -51,7 +50,17 @@
                             [(eq? hovered (view-hovered-node vw)) #f]
                             [else 
                              (set-view-hovered-node! vw hovered)
-                             #t]))]
+                             (define inter (view-interaction-for 'hover vw))
+                             (cond 
+                               [inter
+                                ;Only one level deep for now, but need to handle mouseover 
+                                ;in views created by mousing over this node (arbitrary nesting)
+                                (pin-over (blank (viewable-region-width vregion)
+                                                 (viewable-region-height vregion)) 
+                                          0
+                                          0
+                                          ((interaction-handler inter) hovered vregion))]
+                               [else #f])]))]
          [click-handler (λ (x y vregion) #f)]
          [overlay-builder (λ (vregion scale-factor) #f)]
          [style '(hscroll vscroll)]

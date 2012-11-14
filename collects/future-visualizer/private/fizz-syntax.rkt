@@ -26,6 +26,7 @@
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
     (for ([n (in-list nds)])
       (define nd (node-data n))
+      (set-node-view! n (node-view-builder nd))
       (set-node-view-drawer! n (car (view-layout-drawers (node-view-builder nd))))
       (define outs (out-edges nd))
       (define out-nodes (find-nodes (out-edges nd) nds))
@@ -44,7 +45,7 @@
     ;gui will draw them in order
     (define layout-lst (if (list? layouts) layouts (list layouts)))
     (set-view-layout-drawers! vw (map (λ (dr) ((curry dr) vw)) layout-lst))
-    (set-view-interaction-drawers! vw interactions)
+    (set-view-interactions! vw interactions)
     vw))
   
 

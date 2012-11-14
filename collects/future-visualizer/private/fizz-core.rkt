@@ -5,6 +5,7 @@
          current-node-data
          (struct-out view)
          (struct-out node)
+         view-interaction-for
          node-width
          node-height
          node-origin-x
@@ -27,18 +28,28 @@
               [layout-drawers #:mutable] ;(listof (viewable-region -> pict))
               layout-pict ; (or pict #f)
               scale-to-canvas? ;bool
-              [interaction-drawers #:mutable #:auto]) ;(or (listof interaction) #f)
+              [hovered-node #:mutable #:auto] ; (or node #f), only needed for performance in mouseover
+              [interactions #:mutable #:auto]) ;(or (listof interaction) #f)
   #:transparent)
 (struct node (data 
               [in-edges #:mutable] ;(listof edge)
               [out-edges #:mutable] ;(listof edge)
+              [view #:mutable #:auto] ;view
               [view-drawer #:mutable #:auto] ;(any -> pict)
               [view-pict #:mutable #:auto]
               [bounds #:mutable #:auto]) ;rect
   #:transparent)
-;type : symbol
-;handler : (node viewable-region -> pict)
-(struct interaction (type handler) #:transparent)
+
+;;view-interaction-for-type : symbol view -> interaction
+(define (view-interaction-for type vw)
+  (let loop ([ints (view-interactions vw)]) 
+    (cond 
+      [(null? ints) #f]
+      [else 
+       (define i (car ints))
+       (if (equal? (interaction-type i) type)
+           i
+           (loop (cdr ints)))])))
 
 (define (node-origin node)
   (values (rect-x (node-bounds node))
@@ -63,6 +74,10 @@
 
 (define (node-height node) 
   (rect-h (node-bounds node)))
+
+;type : symbol
+;handler : (node viewable-region -> pict)
+(struct interaction (type handler) #:transparent)
 
 ;;control-point : node symbol symbol -> (values uint uint)
 (define (control-point node horiz vert)
