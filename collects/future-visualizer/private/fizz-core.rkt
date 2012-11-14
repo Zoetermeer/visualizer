@@ -14,7 +14,7 @@
          control-point
          (struct-out edge)
          (struct-out interaction)
-         (struct-out exec)
+         (struct-out profile)
          (struct-out future)
          (struct-out thread)
          (struct-out event)
@@ -83,7 +83,7 @@
 
 (struct interaction (event view-drawer))
 
-(struct exec (start-time end-time all-futures))
+(struct profile (start-time end-time all-futures))
 (struct future (id real-time spawned-futures barricades syncs allocs) #:transparent)
 (struct thread (id all-events))
 (struct event (index start-time end-time previous-event next-event))

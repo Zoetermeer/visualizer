@@ -141,12 +141,13 @@
       (define nodes (view-nodes vw))
       (case orientation
         [(vertical) 
-         (define node-picts (map (λ (n) 
-                                   ((node-view-drawer n) vregion))
-                                 nodes))
+         (for ([n (in-list nodes)])
+           (set-node-view-pict! n ((node-view-drawer n) vregion)))
          (define-values (pct _) (for/fold ([pct (blank (viewable-region-width vregion)
                                                        (viewable-region-height vregion))]
-                                           [yacc 0]) ([p (in-list node-picts)])
+                                           [yacc 0]) ([n (in-list nodes)])
+                                  (define p (node-view-pict n))
+                                  (set-node-bounds! n (rect 0 yacc (pict-width p) (pict-height p)))
                                   (values (pin-over pct 
                                                     0 
                                                     yacc
@@ -182,6 +183,8 @@
             y
             (colorize (filled-rectangle width height) color)))
 
+;(define (line #:from-x 
+
                               
 ;BUILT-IN VIEWS
 ;--------------
@@ -193,17 +196,16 @@
                 #:stroke-color [stroke-color "black"]
                 #:text [text #f])
   (build-view 'circle
-              #:layout
-              (λ (vw vregion)
-                  (cond 
-                    [text
-                     (define t (colorize (pict-text (format "~a" text)) fore-color))
-                     (define diam (abs-or-auto-for t pict-width diameter))
-                     (define c (colorize (disk diam) back-color))
-                     (cc-superimpose c t)]
-                    [else
-                     (colorize (disk diameter) back-color)]))))
-                   
+              #:layout (λ (vw vregion)
+                         (cond 
+                           [text
+                            (define t (colorize (pict-text (format "~a" text)) fore-color))
+                            (define diam (abs-or-auto-for t pict-width diameter))
+                            (define c (colorize (disk diam) back-color))
+                            (cc-superimpose c t)]
+                           [else
+                            (colorize (disk diameter) back-color)]))))
+
 
 ;Rectangle view
 (define (rectangle #:width width

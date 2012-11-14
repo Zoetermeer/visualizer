@@ -55,7 +55,7 @@
     ;When defining a view, the last layout specified has
     ;the highest z-ordering, so reverse the list -- the 
     ;gui will draw them in order
-    (define layout-lst (if (list? layouts) (reverse layouts) (list layouts)))
+    (define layout-lst (if (list? layouts) layouts (list layouts)))
     (set-view-layout-drawers! vw (map (λ (dr) ((curry dr) vw)) layout-lst))
     vw))
   
