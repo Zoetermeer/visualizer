@@ -7,7 +7,7 @@
          "fizz-core.rkt"
          "display.rkt")
 (provide tree
-         ;stack
+         stack
          hierarchical-list
          elastic-timeline
          menubar
@@ -148,29 +148,28 @@
               0
               (blank maxx maxy))))    
 
-#;(define (stack #:orientation [orientation 'vertical]
+(define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
   (λ (vw vregion)
-      (define nodes (view-nodes vw))
-      (case orientation
-        [(vertical) 
-         (for ([n (in-list nodes)])
-           (set-node-view-pict! n ((node-view-drawer n) vregion)))
-         (define-values (pct _) (for/fold ([pct (blank (viewable-region-width vregion)
-                                                       (viewable-region-height vregion))]
-                                           [yacc 0]) ([n (in-list nodes)])
-                                  (define p (node-view-pict n))
-                                  (set-node-bounds! n (rect 0 yacc (pict-width p) (pict-height p)))
-                                  (values (pin-over pct 
-                                                    0 
-                                                    yacc
-                                                    p)
-                                          (+ yacc (pict-height p) margin))))
-         pct]
-        [(horizontal) 
-         (apply htl-append
-                (cons margin
-                      (map (λ (n) ((node-view-drawer n) vregion)) nodes)))])))
+    (define nodes (view-nodes vw))
+    (for ([n (in-list nodes)])
+      (set-view-layout-pict! (node-view n) 
+                             ((view-layout-drawer (node-view n)) vregion)))
+    (define-values (pct _) (for/fold ([pct (blank (viewable-region-width vregion)
+                                                  (viewable-region-height vregion))]
+                                      [∆ margin]) ([n (in-list nodes)])
+                             (define p (view-layout-pict (node-view n)))
+                             (define-values (x y incf) (case orientation
+                                                         [(vertical) (values margin ∆ pict-height)]
+                                                         [(horizontal) (values ∆ margin pict-width)]))
+                             (set-view-bounds! (node-view n) 
+                                               (rect x y (pict-width p) (pict-height p)))                             
+                             (values (pin-over pct 
+                                               x
+                                               y
+                                               p)
+                                     (+ ∆ (incf p) margin))))
+    pct))
 
 (define (hierarchical-list vw vregion) 0)
 
