@@ -113,14 +113,12 @@
 
 ;Simple interaction view for testing
 (define (offset-circle offx offy)
-  (λ (parent-view data) 
-    ((circle #:diameter 100
+  (circle #:diameter 100
              #:back-color "red"
              #:fore-color "white"
              #:text "I am a hovering circle!"
-             #:x (+ (view-origin-x parent-view) offx)
-             #:y (+ (view-origin-y parent-view) offy)) 
-     parent-view data)))
+             #:x offx
+             #:y offy))
 
 (define v4-builder 
   (build-view 'view4
@@ -139,7 +137,11 @@
 (define v4 (v4-builder #f #f))
 (check-equal? (length (view-children v4)) 8)
 (for ([nd (in-list (view-nodes v4))])
-  (check-equal? (length (view-interactions (node-view nd))) 2))
+  (check-equal? (length (view-interactions (node-view nd))) 2)
+  (for ([int (in-list (view-interactions (node-view nd)))])
+    (check-true (interaction? int))
+    (check-true (view? (interaction-view int)))
+    (check-true (view? (view-parent (interaction-view int))))))
 
 
                                   

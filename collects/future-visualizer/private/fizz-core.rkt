@@ -87,7 +87,7 @@
 
 ;type : symbol
 ;handler : (node viewable-region -> pict)
-(struct interaction (type handler) #:transparent)
+(struct interaction (type handler [view #:mutable #:auto]) #:transparent)
 
 ;;control-point : view symbol symbol -> (values uint uint)
 (define (control-point view horiz vert)
@@ -140,6 +140,9 @@
         (set-node-out-edges! n (cons e (node-out-edges n)))
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
     (set-view-layout-drawer! vw ((curry layout) vw))
+    ;Evaluate each interaction's view builder and set its parent
+    (for ([int (in-list interactions)])
+      (set-interaction-view! int ((interaction-handler int) vw data)))
     (set-view-interactions! vw interactions)
     vw))
 

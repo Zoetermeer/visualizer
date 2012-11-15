@@ -1,7 +1,8 @@
 #lang racket/gui
 (require framework 
          slideshow/pict 
-         "display.rkt") 
+         "display.rkt"
+         "fizz-core.rkt") 
 (provide fizz-canvas%) 
 
 
@@ -14,7 +15,7 @@
     (inherit get-dc get-client-size refresh get-view-start)
     (define bp pict-builder) ;Builds the main pict for the canvas
     (define mh hover-handler) ;Mouse hover handler
-    (define ob overlay-builder) ;Hover overlay pict builder
+    ;(define ob overlay-builder) ;Hover overlay pict builder
     (define ch click-handler) ;Mouse click handler  
     (define redraw-on-size redraw-on-resize) ;Whether we should rebuild the pict for on-size events
     (define scale-factor 1)
@@ -26,7 +27,17 @@
     (define delaying-redraw? #f)
     (define cached-base-bitmap #f)
     (define cached-overlay-bitmap #f)
+    (define pending-interaction-views '())
     
+    (define/private (ob vregion scale)
+      (for/fold ([p (blank (viewable-region-width vregion) (viewable-region-height vregion))])
+        ([inter (in-list pending-interaction-views)])
+        (define iview (interaction-view inter))
+        (pin-over p
+                  (view-origin-x (view-parent iview))
+                  (view-origin-y (view-parent iview))
+                  ((view-layout-drawer iview) vregion))))
+                  
     (define/private (get-viewable-region) 
       (define-values (x y) (get-view-start)) 
       (define-values (w h) (get-client-size)) 
@@ -41,12 +52,11 @@
     (define/private (rebuild-the-pict! vregion #:only-the-overlay? [only-the-overlay? #f]) 
       (when (or (not cached-base-bitmap) (not only-the-overlay?))  
         (set! cached-base-bitmap (pict->bitmap (scale (bp vregion) scale-factor))))
-      (when ob 
-        (define overlay-pict (ob vregion scale-factor)) 
-        (set! cached-overlay-bitmap 
-              (if overlay-pict 
-                  (pict->bitmap overlay-pict) 
-                  #f))))
+      (define overlay-pict (ob vregion scale-factor)) 
+      (set! cached-overlay-bitmap 
+            (if overlay-pict 
+                (pict->bitmap overlay-pict) 
+                #f)))
     
     ;Rebuilds the pict and stashes in a bitmap 
     ;to be drawn to the canvas later
@@ -104,7 +114,13 @@
       (case (send event get-event-type) 
         [(motion) 
          (when mh 
-           (when (mh x y vregion) ;Mouse handler returns non-false if a state change requiring redraw occurred 
+           ;iviews is a list of all interaction views which 
+           ;need to be drawn as a result of mouseover
+           (define-values (redraw? iviews) (mh x y vregion))
+           (when redraw?
+             (set! pending-interaction-views iviews)
+             (redraw-the-bitmap/maybe-delayed! vregion #:delay 0 #:only-the-overlay? #t))
+           #;(when (mh x y vregion) ;Mouse handler returns non-false if a state change requiring redraw occurred 
              (redraw-the-bitmap/maybe-delayed! vregion #:delay 0 #:only-the-overlay? #f)))]
         [(left-up) 
          (when ch (ch x y vregion)) ;Ditto for click handler

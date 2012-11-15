@@ -36,23 +36,15 @@
                                                    n
                                                    (loop (cdr nds)))])))
                           (cond
-                            [(and (not hovered) (not (view-hovered-node vw))) #f]
-                            [(eq? hovered (view-hovered-node vw)) #f]
-                            [(not hovered) #t]
+                            [(and (not hovered) (not (view-hovered-node vw))) (values #f '())]
+                            [(eq? hovered (view-hovered-node vw)) (values #f '())]
+                            [(not hovered) (values #t '())]
                             [else 
                              (set-view-hovered-node! vw hovered)
                              ;Try fetching an interaction from the node's view
                              (define inter (view-interaction-for 'hover (node-view hovered)))
                              (cond 
-                               [inter
-                                ;Only one level deep for now, but need to handle mouseover 
-                                ;in views created by mousing over this node (arbitrary nesting)
-                                (pin-over (blank (viewable-region-width vregion)
-                                                 (viewable-region-height vregion)) 
-                                          0
-                                          0
-                                          ((view-layout-drawer ((interaction-handler inter) (node-view hovered) (node-data hovered)))
-                                                               vregion))]
+                               [inter (values #t `(,inter))]
                                [else #f])]))]
          [click-handler (λ (x y vregion) #f)]
          [overlay-builder (λ (vregion scale-factor) #f)]
