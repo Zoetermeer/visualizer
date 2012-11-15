@@ -120,13 +120,15 @@
 (define (build-view name 
                     #:nodes [nodes (λ (data) '())]
                     #:out-edges [out-edges (λ (node-data) '())]
-                    #:node-view [node-view-builder (λ (data) #f)]
-                    #:edge-view [edge-view-builder (λ (tail head) #f)]
+                    #:node-view [node-view-builder #f]
+                    #:edge-view [edge-view-builder #f]
                     #:scale-to-canvas? [scale-to-canvas? #f]
                     #:layout layout
                     . interactions)
   (λ (parent-view data)
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
+    (when (and (not (null? nds)) (not node-view-builder))
+      (error 'build-view "view with nodes must have an associated node view"))
     (define vw (construct-view name data parent-view nds #f scale-to-canvas?))
     (for ([n (in-list nds)])
       (define nd (node-data n))

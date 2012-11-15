@@ -86,6 +86,18 @@
                                   #:edge-view (edge-line)
                                   #:layout (tree)))
 
+;Try creating a view with nodes but no node view
+(define v3-builder (build-view 'view3
+                               #:nodes (λ (data) '(1 2 3 4 5))
+                               #:out-edges (λ (x)
+                                             (case x 
+                                               [(4) '(2 3)]
+                                               [(2) '(1)]
+                                               [else '()]))
+                               #:edge-view (edge-line)
+                               #:layout (tree)))
+(check-exn exn:fail? (λ () (v3-builder #f #f)))
+
                                   
 
 

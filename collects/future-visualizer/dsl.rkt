@@ -21,5 +21,5 @@
                            #:height exact-nonnegative-integer?)
                           #:rest (listof view?)
                           void?)])
-         (all-from-out "private/fizz-core.rkt")
+         (except-out (all-from-out "private/fizz-core.rkt") build-view)
          (all-from-out "private/fizz-builtins.rkt"))
