@@ -95,9 +95,15 @@
 
 (define (tree #:margin margin) 
   (λ (vw vregion)
-    (define bounds (if (view-parent vw)
-                       (view-bounds (view-parent vw))
-                       (view-bounds vw)))
+    (define bounds (cond 
+                     [(view-parent vw)
+                      (view-bounds (view-parent vw))]
+                     [else
+                      (set-view-bounds! vw (rect (viewable-region-x vregion)
+                                                 (viewable-region-y vregion)
+                                                 (viewable-region-width vregion)
+                                                 (viewable-region-height vregion)))
+                      (view-bounds vw)]))
     (define data (view-data vw))
     (define nodes (view-nodes vw))
     (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
@@ -186,8 +192,6 @@
             y
             (colorize (filled-rectangle width height) color)))
 
-;(define (line #:from-x 
-
 (define (properties-get data . vs)
   (map (λ (v)
          (cond 
@@ -226,25 +230,7 @@
                             (define c (colorize (disk the-diam) bc))
                             (cc-superimpose c t)]
                            [else
-                            (colorize (disk diam) bc)])))
-  #;(build-view 'circle
-              #:layout (λ (vw vregion)
-                         (match-define `(,diam ,bc ,fc ,stw ,stc ,txt) 
-                           (properties-get (view-data vw) diameter
-                                                          back-color
-                                                          fore-color
-                                                          stroke-width
-                                                          stroke-color
-                                                          text))
-                         (cond 
-                           [txt
-                            (define t (colorize (pict-text (format "~a" txt)) fc))
-                            (define the-diam (abs-or-auto-for t pict-width diam))
-                            (define c (colorize (disk the-diam) bc))
-                            (cc-superimpose c t)]
-                           [else
-                            (colorize (disk diam) bc)]))
-              interactions))
+                            (colorize (disk diam) bc)]))))
 
 
 ;Rectangle view
