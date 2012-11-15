@@ -4,7 +4,6 @@
                     [rectangle pict-rectangle]
                     [text pict-text])
          (only-in racket/match match match-define)
-         "fizz-syntax.rkt"
          "fizz-core.rkt"
          "display.rkt")
 (provide tree
@@ -93,7 +92,7 @@
         (values (max xe mx)
                 (max ye my))])]))
 
-(define (tree #:margin margin) 
+(define (tree #:margin [margin 10]) 
   (λ (vw vregion)
     (define bounds (cond 
                      [(view-parent vw)

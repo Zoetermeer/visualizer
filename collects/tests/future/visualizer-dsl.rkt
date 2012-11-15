@@ -16,6 +16,10 @@
      (for/and ([child (in-list (view-children root-view))])
        (views-have-bounds? child))]))
 
+(define (nodes-have-views? view)
+  (for/and ([nd (in-list (view-nodes view))])
+    (view? (node-view nd))))
+
 (define v1-builder (build-view 'view1
                        #:layout (λ (view vregion)
                                   (blank 400 400))))
@@ -54,7 +58,35 @@
 (check-equal? (rect-h (view-bounds v2)) (viewable-region-height vr))
 (check-equal? (length (view-children v2)) 7) ;5 node subviews + 2 edge subviews
 (check-true (views-have-bounds? v2))
+(check-true (nodes-have-views? v2))
 
+(define inv-child-builder (build-view 'badv
+                                      #:nodes (λ (data) '(1 2 3 4 5))
+                                      #:out-edges (λ (x)
+                                                    (case x 
+                                                      [(1) '(5 6)]
+                                                      [else '()]))
+                                      #:node-view (circle #:diameter 20
+                                                          #:back-color "black")
+                                      #:edge-view (edge-line)
+                                      #:layout (tree)))
+(check-exn exn:fail? (λ () (inv-child-builder #f #f))) ;Invalid child
+
+;Need to test for cycle detection when using tree
+;layout, but arbitrary graphs are otherwise okay
+(define cycle-builder (build-view 'with-cycles
+                                  #:nodes (λ (data) '(1 2 3 4 5))
+                                  #:out-edges (λ (x)
+                                                (case x 
+                                                  [(1) '(2)]
+                                                  [(2) '(1)] 
+                                                  [else '()]))
+                                  #:node-view (circle #:diameter 20
+                                                      #:back-color "black")
+                                  #:edge-view (edge-line)
+                                  #:layout (tree)))
+
+                                  
 
 
 

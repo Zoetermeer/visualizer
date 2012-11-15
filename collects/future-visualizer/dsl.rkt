@@ -1,6 +1,5 @@
 #lang racket/base
 (require racket/contract
-         "private/fizz-syntax.rkt"
          "private/fizz-core.rkt" 
          "private/fizz-builtins.rkt"
          "private/fizz-gui.rkt"
