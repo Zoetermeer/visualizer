@@ -5,6 +5,7 @@
          "fizz-core.rkt"
          "display.rkt")
 (provide visualize)
+                           
 
 (define (visualize #:width [width 1000]
                    #:height [height 800] 
@@ -37,9 +38,11 @@
                           (cond
                             [(and (not hovered) (not (view-hovered-node vw))) #f]
                             [(eq? hovered (view-hovered-node vw)) #f]
+                            [(not hovered) #t]
                             [else 
                              (set-view-hovered-node! vw hovered)
-                             (define inter (view-interaction-for 'hover vw))
+                             ;Try fetching an interaction from the node's view
+                             (define inter (view-interaction-for 'hover (node-view hovered)))
                              (cond 
                                [inter
                                 ;Only one level deep for now, but need to handle mouseover 

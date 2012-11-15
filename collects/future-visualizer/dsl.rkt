@@ -16,7 +16,11 @@
                         #:edge-view (node? node? . -> . view?)
                         #:scale-to-canvas? boolean?)
                        #:rest (listof interaction?)
-                       ((or/c view? #f) any/c . -> . view?))])
+                       ((or/c view? #f) any/c . -> . view?))]
+          [visualize (->* ()
+                          (#:width exact-nonnegative-integer?
+                           #:height exact-nonnegative-integer?)
+                          #:rest (listof view?)
+                          void?)])
          (all-from-out "private/fizz-core.rkt")
-         (all-from-out "private/fizz-builtins.rkt")
-         (all-from-out "private/fizz-gui.rkt"))
+         (all-from-out "private/fizz-builtins.rkt"))
