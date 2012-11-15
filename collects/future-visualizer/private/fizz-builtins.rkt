@@ -8,7 +8,7 @@
          "fizz-core.rkt"
          "display.rkt")
 (provide tree
-         stack
+         ;stack
          hierarchical-list
          elastic-timeline
          menubar
@@ -32,21 +32,22 @@
       (+ (get-size child) 
          (* 2 (auto-margin want-size)))
       want-size))
-  
 
 ;BUILT-IN LAYOUT DRAWERS
 ;-----------------------
 (define (set-tree-layout! parent margin x y mx my vregion)
-  (set-node-view-pict! parent ((node-view-drawer parent) vregion)) 
-  (define w (pict-width (node-view-pict parent)))
-  (define h (pict-height (node-view-pict parent)))
+  (define ndview (node-view parent))
+  (define pct ((view-layout-drawer ndview) vregion))
+  (set-view-layout-pict! ndview pct)
+  (define w (pict-width pct))
+  (define h (pict-height pct))
   (cond 
     [(null? (node-out-edges parent))
      (define nx (+ margin x))
      (define ny (+ margin y))
      (define xe (+ nx w))
      (define ye (+ ny h))
-     (set-node-bounds! parent (rect nx ny w h))
+     (set-view-bounds! ndview (rect nx ny w h))
      (values (max mx xe)
              (max my ye))]
     [else
@@ -62,12 +63,12 @@
                                                    mx 
                                                    my
                                                    vregion))
-        (define-values (cx _) (control-point first-child 'center 'top))
+        (define-values (cx _) (control-point (node-view first-child) 'center 'top))
         (define nx (max (- cx (/ w 2)) (+ x margin)))
         (define ny (+ margin y))
         (define xe (+ nx w))
         (define ye (+ ny h))
-        (set-node-bounds! parent (rect nx ny w h))
+        (set-view-bounds! ndview (rect nx ny w h))
         (values (max cmx xe)
                 (max cmy ye))]
        [else
@@ -81,61 +82,63 @@
                                                        my
                                                        vregion))
             (values (max xacc cmx) (max yacc cmy))))
-        (define xmin (node-origin-x first-child))
+        (define xmin (view-origin-x (node-view first-child)))
         (define xmax cmx)
         (define nx (- (+ xmin (/ (- xmax xmin) 2))
                       (/ w 2)))
         (define ny (+ margin y))
         (define xe (max (+ nx w) cmx))
         (define ye (max (+ ny h) cmy))
-        (set-node-bounds! parent (rect nx ny w h))
+        (set-view-bounds! ndview (rect nx ny w h))
         (values (max xe mx)
                 (max ye my))])]))
 
 (define (tree #:margin margin) 
   (λ (vw vregion)
-      (define data (view-data vw))
-      (define nodes (view-nodes vw))
-      (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
-      (when (null? roots)
-        (error 'tree "No root nodes found!"))
-      (define-values (maxx maxy)
-        (for/fold ([maxx 0] [maxy 0]) ([r (in-list roots)])
-          (define-values (mx my) 
-            (set-tree-layout! r
-                              margin
-                              maxx 
-                              0
-                              maxx 
-                              0
-                              vregion))
-          (values (max maxx mx)
-                  (max maxy my))))    
-      ;Draw three picts: 
-      ;1) Blank with nodes superimposed
-      ;2) Blank with edges superimposed
-      ;3) Background pict (colored square or whatever)
-      ;Then overlay 1 -> 2 -> 3
-      (define-values (np ep) (for/fold ([np (blank maxx maxy)]
-                                        [ep (blank maxx maxy)]) ([n (in-list nodes)])
-                               (define-values (ncx ncy) (control-point n 'center 'center))
-                               (values (pin-over np 
-                                                 (node-origin-x n)
-                                                 (node-origin-y n)
-                                                 (node-view-pict n))
-                                       (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
-                                         (pin-over out-ep
-                                                   ncx
-                                                   ncy
-                                                   ((edge-view-drawer ed) vregion))))))
-      (pin-over (pin-over ep 0 0 np)
-                0
-                0
-                (blank maxx maxy))))
-                           
-    
+    (define bounds (if (view-parent vw)
+                       (view-bounds (view-parent vw))
+                       (view-bounds vw)))
+    (define data (view-data vw))
+    (define nodes (view-nodes vw))
+    (define roots (filter (λ (n) (null? (node-in-edges n))) nodes))
+    (when (null? roots)
+      (error 'tree "No root nodes found!"))
+    (define-values (maxx maxy)
+      (for/fold ([maxx (rect-x bounds)] [maxy (rect-y bounds)]) ([r (in-list roots)])
+        (define-values (mx my) 
+          (set-tree-layout! r
+                            margin
+                            maxx 
+                            (rect-y bounds)
+                            maxx 
+                            maxy
+                            vregion))
+        (values (max maxx mx)
+                (max maxy my))))    
+    ;Draw three picts: 
+    ;1) Blank with nodes superimposed
+    ;2) Blank with edges superimposed
+    ;3) Background pict (colored square or whatever)
+    ;Then overlay 1 -> 2 -> 3
+    (define-values (np ep) (for/fold ([np (blank maxx maxy)]
+                                      [ep (blank maxx maxy)]) ([n (in-list nodes)])
+                             (define nview (node-view n))
+                             (define-values (ncx ncy) (control-point nview 'center 'center))
+                             (values (pin-over np 
+                                               (view-origin-x nview)
+                                               (view-origin-y nview)
+                                               (view-layout-pict nview))
+                                     (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
+                                       (pin-over out-ep
+                                                 ncx
+                                                 ncy
+                                                 ((edge-view-drawer ed) vregion))))))
+    (pin-over (pin-over ep 0 0 np)
+              0
+              0
+              (blank maxx maxy))))    
 
-(define (stack #:orientation [orientation 'vertical]
+#;(define (stack #:orientation [orientation 'vertical]
                #:margin [margin 0])
   (λ (vw vregion)
       (define nodes (view-nodes vw))
@@ -202,6 +205,8 @@
                 #:stroke-width [stroke-width 0]
                 #:stroke-color [stroke-color "black"]
                 #:text [text #f] 
+                #:x [x 0]
+                #:y [y 0]
                 . interactions) 
   (build-view 'circle
               #:layout (λ (vw vregion)
@@ -267,12 +272,12 @@
     (define vw (build-view 'edge-line
                            #:layout
                            (λ (vw vregion)
-                               (define-values (tcx tcy) (control-point tail 'center 'center))
-                               (define-values (hcx hcy) (control-point head 'center 'center))
+                               (define-values (tcx tcy) (control-point (node-view tail) 'center 'center))
+                               (define-values (hcx hcy) (control-point (node-view head) 'center 'center))
                                (define dx (- hcx tcx))
                                (define dy (- hcy tcy))
                                (linewidth width
                                           (linestyle style
                                                      (colorize (pip-line dx dy 0)
                                                                color))))))
-    (vw #f)))
+    (vw #f #f)))

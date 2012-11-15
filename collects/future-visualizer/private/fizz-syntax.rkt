@@ -20,31 +20,26 @@
                     #:node-view [node-view-builder (λ (data) #f)]
                     #:edge-view [edge-view-builder (λ (tail head) #f)]
                     #:scale-to-canvas? [scale-to-canvas? #f]
-                    #:layout layouts
+                    #:layout layout
                     . interactions)
-  (λ (data)
+  (λ (parent-view data)
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
+    (define vw (view name
+                     data
+                     parent-view
+                     nds
+                     #f ;drawer
+                     scale-to-canvas?))
     (for ([n (in-list nds)])
       (define nd (node-data n))
-      (set-node-view! n (node-view-builder nd))
-      (set-node-view-drawer! n (car (view-layout-drawers (node-view-builder nd))))
+      (set-node-view! n (node-view-builder vw nd))
       (define outs (out-edges nd))
       (define out-nodes (find-nodes (out-edges nd) nds))
       (for ([o-n (in-list out-nodes)])
-        (define e (edge n o-n (car (view-layout-drawers (edge-view-builder n o-n)))))
+        (define e (edge n o-n (view-layout-drawer (edge-view-builder n o-n))))
         (set-node-out-edges! n (cons e (node-out-edges n)))
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
-    (define vw (view name
-                     data
-                     nds
-                     #f ;drawer
-                     #f
-                     scale-to-canvas?))
-    ;When defining a view, the last layout specified has
-    ;the highest z-ordering, so reverse the list -- the 
-    ;gui will draw them in order
-    (define layout-lst (if (list? layouts) layouts (list layouts)))
-    (set-view-layout-drawers! vw (map (λ (dr) ((curry dr) vw)) layout-lst))
+    (set-view-layout-drawer! vw ((curry layout) vw))
     (set-view-interactions! vw interactions)
     vw))
   

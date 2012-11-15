@@ -9,15 +9,14 @@
 (provide (contract-out 
           [build-view (->*
                        (symbol? 
-                        #:layout (or/c (view? (or/c viewable-region? #f) . -> . (or/c pict? #f))
-                                       (listof (view? (or/c viewable-region? #f) . -> . (or/c pict? #f)))))
+                        #:layout (view? (or/c viewable-region? #f) . -> . (or/c pict? #f)))
                        (#:nodes (any/c . -> . (listof any/c))
                         #:out-edges (any/c . -> . (listof any/c))
-                        #:node-view (any/c . -> . view?)
+                        #:node-view (view? any/c . -> . view?)
                         #:edge-view (node? node? . -> . view?)
                         #:scale-to-canvas? boolean?)
                        #:rest (listof interaction?)
-                       (any/c . -> . view?))])
+                       ((or/c view? #f) any/c . -> . view?))])
          (all-from-out "private/fizz-core.rkt")
          (all-from-out "private/fizz-builtins.rkt")
          (all-from-out "private/fizz-gui.rkt"))

@@ -21,28 +21,17 @@
     (new fizz-canvas% 
          [parent main-panel]
          [pict-builder (λ (vregion)
-                         (define maybe-lowestp ((car (view-layout-drawers vw)) vregion))
-                         (define lowestp (if (not maybe-lowestp) 
-                                             (blank (viewable-region-width vregion)
-                                                                        (viewable-region-height vregion))
-                                             maybe-lowestp))
-                         (define p (for/fold ([p lowestp]) ([lyt (in-list (cdr (view-layout-drawers vw)))])
-                                     (define layout-p (lyt vregion))
-                                     (if (not layout-p)
-                                         p
-                                         (pin-over p 
-                                                   0
-                                                   0
-                                                   layout-p))))
-                         p)]
+                         (set-view-bounds! vw (rect 0 0 (viewable-region-width vregion) (viewable-region-height vregion)))
+                         ((view-layout-drawer vw) vregion))]
          [hover-handler (λ (x y vregion) 
                           (define hovered (let loop ([nds (view-nodes vw)])
                                             (cond 
                                               [(empty? nds) #f]
                                               [else
                                                (define n (car nds))
-                                               (if (and (between x (node-origin-x n) (node-x-extent n))
-                                                        (between y (node-origin-y n) (node-y-extent n)))
+                                               (define nview (node-view n))
+                                               (if (and (between x (view-origin-x nview) (view-x-extent nview))
+                                                        (between y (view-origin-y nview) (view-y-extent nview)))
                                                    n
                                                    (loop (cdr nds)))])))
                           (cond
@@ -59,7 +48,8 @@
                                                  (viewable-region-height vregion)) 
                                           0
                                           0
-                                          ((interaction-handler inter) hovered vregion))]
+                                          ((view-layout-drawer ((interaction-handler inter) (node-view hovered) (node-data hovered)))
+                                                               vregion))]
                                [else #f])]))]
          [click-handler (λ (x y vregion) #f)]
          [overlay-builder (λ (vregion scale-factor) #f)]

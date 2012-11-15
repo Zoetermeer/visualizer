@@ -6,12 +6,12 @@
          (struct-out view)
          (struct-out node)
          view-interaction-for
-         node-width
-         node-height
-         node-origin-x
-         node-origin-y
-         node-x-extent
-         node-y-extent
+         view-width
+         view-height
+         view-origin-x
+         view-origin-y
+         view-x-extent
+         view-y-extent
          control-point
          (struct-out edge)
          (struct-out interaction)
@@ -24,20 +24,19 @@
 (struct rect (x y w h) #:transparent)
 (struct view (name ;symbol
               data ;any
+              parent ;(or view #f)  #f if the root view
               nodes ;(listof node)
-              [layout-drawers #:mutable] ;(listof (viewable-region -> pict))
-              layout-pict ; (or pict #f)
+              [layout-drawer #:mutable] ;(viewable-region -> pict)
               scale-to-canvas? ;bool
+              [layout-pict #:mutable #:auto] ; (or pict #f)
+              [bounds #:mutable #:auto] ;rect
               [hovered-node #:mutable #:auto] ; (or node #f), only needed for performance in mouseover
               [interactions #:mutable #:auto]) ;(or (listof interaction) #f)
   #:transparent)
 (struct node (data 
               [in-edges #:mutable] ;(listof edge)
               [out-edges #:mutable] ;(listof edge)
-              [view #:mutable #:auto] ;view
-              [view-drawer #:mutable #:auto] ;(any -> pict)
-              [view-pict #:mutable #:auto]
-              [bounds #:mutable #:auto]) ;rect
+              [view #:mutable #:auto]) ;view
   #:transparent)
 
 ;;view-interaction-for-type : symbol view -> interaction
@@ -51,39 +50,39 @@
            i
            (loop (cdr ints)))])))
 
-(define (node-origin node)
-  (values (rect-x (node-bounds node))
-          (rect-y (node-bounds node))))
+(define (view-origin view)
+  (values (rect-x (view-bounds view))
+          (rect-y (view-bounds view))))
 
-(define (node-origin-x node)
-  (rect-x (node-bounds node)))
+(define (view-origin-x view)
+  (rect-x (view-bounds view)))
 
-(define (node-origin-y node)
-  (rect-y (node-bounds node)))
+(define (view-origin-y view)
+  (rect-y (view-bounds view)))
 
-(define (node-x-extent node)
-  (+ (node-origin-x node)
-     (node-width node)))
+(define (view-x-extent view)
+  (+ (view-origin-x view)
+     (view-width view)))
 
-(define (node-y-extent node)
-  (+ (node-origin-y node)
-     (node-height node)))
+(define (view-y-extent view)
+  (+ (view-origin-y view)
+     (view-height view)))
 
-(define (node-width node) 
-  (rect-w (node-bounds node)))
+(define (view-width view) 
+  (rect-w (view-bounds view)))
 
-(define (node-height node) 
-  (rect-h (node-bounds node)))
+(define (view-height view) 
+  (rect-h (view-bounds view)))
 
 ;type : symbol
 ;handler : (node viewable-region -> pict)
 (struct interaction (type handler) #:transparent)
 
-;;control-point : node symbol symbol -> (values uint uint)
-(define (control-point node horiz vert)
-  (unless (node-bounds node)
-    (error 'control-point "bounds undefined for node: ~a" node))
-  (match-define (rect nx ny nw nh) (node-bounds node))
+;;control-point : view symbol symbol -> (values uint uint)
+(define (control-point view horiz vert)
+  (unless (view-bounds view)
+    (error 'control-point "bounds undefined for view: ~a" view))
+  (match-define (rect nx ny nw nh) (view-bounds view))
   (values (case horiz
             [(left) nx]
             [(center) (+ nx (/ nw 2))]
