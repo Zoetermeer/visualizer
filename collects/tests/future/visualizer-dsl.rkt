@@ -20,6 +20,19 @@
   (for/and ([nd (in-list (view-nodes view))])
     (view? (node-view nd))))
 
+(define (default-view 
+          name
+          #:nodes nodes 
+          #:out-edges out-edges 
+          #:layout layout)
+  (build-view name 
+              #:nodes nodes
+              #:out-edges out-edges
+              #:node-view (circle #:diameter 30
+                                  #:back-color "red")
+              #:edge-view (edge-line)
+              #:layout layout))
+
 (define v1-builder (build-view 'view1
                        #:layout (λ (view vregion)
                                   (blank 400 400))))
@@ -97,6 +110,37 @@
                                #:edge-view (edge-line)
                                #:layout (tree)))
 (check-exn exn:fail? (λ () (v3-builder #f #f)))
+
+;Simple interaction view for testing
+(define (offset-circle offx offy)
+  (λ (parent-view data) 
+    ((circle #:diameter 100
+             #:back-color "red"
+             #:fore-color "white"
+             #:text "I am a hovering circle!"
+             #:x (+ (view-origin-x parent-view) offx)
+             #:y (+ (view-origin-y parent-view) offy)) 
+     parent-view data)))
+
+(define v4-builder 
+  (build-view 'view4
+              #:nodes (λ (data) '(1 2 3 4 5))
+              #:out-edges (λ (x)
+                            (case x 
+                              [(4) '(2 3)]
+                              [(2) '(1)]
+                              [else '()]))
+              #:node-view (circle #:diameter 30
+                                  #:back-color "blue" 
+                                  (interaction 'hover (offset-circle 40 40))
+                                  (interaction 'click (offset-circle -40 -40)))
+              #:edge-view (edge-line)
+              #:layout (tree)))
+(define v4 (v4-builder #f #f))
+(check-equal? (length (view-children v4)) 8)
+(for ([nd (in-list (view-nodes v4))])
+  (check-equal? (length (view-interactions (node-view nd))) 2))
+
 
                                   
 
