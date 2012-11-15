@@ -1,14 +1,20 @@
 #lang racket
 (require rackunit
          future-visualizer/dsl
-         (only-in future-visualizer/private/display 
-                  viewable-region)
+         future-visualizer/private/display
          (rename-in slideshow/pict
                     [rectangle pict-rectangle]
                     [circle pict-circle]))
 
 (define (make-up-vregion)
   (viewable-region 0 0 (random 400) (random 400)))
+
+(define (views-have-bounds? root-view)
+  (cond 
+    [(not (view-bounds root-view)) #f]
+    [else 
+     (for/and ([child (in-list (view-children root-view))])
+       (views-have-bounds? child))]))
 
 (define v1-builder (build-view 'view1
                        #:layout (λ (view vregion)
@@ -41,4 +47,29 @@
                               (view-nodes v2)))
               1)
 (check-true (procedure? (view-layout-drawer v2)))
-(check-true (pict? ((view-layout-drawer v2) (make-up-vregion))))
+(define vr (make-up-vregion))
+(check-true (pict? ((view-layout-drawer v2) vr)))
+(check-true (rect? (view-bounds v2)))
+(check-equal? (rect-w (view-bounds v2)) (viewable-region-width vr))
+(check-equal? (rect-h (view-bounds v2)) (viewable-region-height vr))
+(check-equal? (length (view-children v2)) 7) ;5 node subviews + 2 edge subviews
+(check-true (views-have-bounds? v2))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

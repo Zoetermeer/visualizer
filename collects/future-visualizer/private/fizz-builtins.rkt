@@ -135,10 +135,15 @@
                                                (view-origin-y nview)
                                                (view-layout-pict nview))
                                      (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
+                                       (define edge-pict ((view-layout-drawer (edge-view ed)) vregion))
+                                       (set-view-bounds! (edge-view ed) (rect ncx 
+                                                                              ncy 
+                                                                              (pict-width edge-pict) 
+                                                                              (pict-height edge-pict)))
                                        (pin-over out-ep
                                                  ncx
                                                  ncy
-                                                 ((edge-view-drawer ed) vregion))))))
+                                                 edge-pict)))))
     (pin-over (pin-over ep 0 0 np)
               0
               0
@@ -273,7 +278,7 @@
 (define (edge-line #:style [style 'solid]
                    #:width [width 1.0]
                    #:color [color "black"])
-  (λ (tail head)
+  (λ (parent-view tail head)
     (define vw (build-view 'edge-line
                            #:layout
                            (λ (vw vregion)
@@ -285,4 +290,4 @@
                                           (linestyle style
                                                      (colorize (pip-line dx dy 0)
                                                                color))))))
-    (vw #f #f)))
+    (vw parent-view #f)))

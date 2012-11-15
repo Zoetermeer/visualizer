@@ -4,6 +4,7 @@
          current-visualization-data
          current-node-data
          (struct-out view)
+         construct-view
          (struct-out node)
          view-interaction-for
          view-width
@@ -22,12 +23,20 @@
          (struct-out rect))
 
 (struct rect (x y w h) #:transparent)
+
+(define (construct-view name data parent nodes [layout-drawer #f] [scale-to-canvas? #f])
+  (define v (view name data parent nodes layout-drawer scale-to-canvas? '()))
+  (when parent
+    (set-view-children! parent (cons v (view-children parent))))
+  v)
+  
 (struct view (name ;symbol
               data ;any
               parent ;(or view #f)  #f if the root view
               nodes ;(listof node)
               [layout-drawer #:mutable] ;(viewable-region -> pict)
               scale-to-canvas? ;bool
+              [children #:mutable]
               [layout-pict #:mutable #:auto] ; (or pict #f)
               [bounds #:mutable #:auto] ;rect
               [hovered-node #:mutable #:auto] ; (or node #f), only needed for performance in mouseover
@@ -94,7 +103,7 @@
 
 (struct edge (tail-node ;start node  (tail-node -----> head-node)
               head-node ;end node
-              [view-drawer #:mutable]) ;(node node -> pict)
+              view) ;pict
   #:transparent)
 
 (struct profile (start-time end-time all-futures))

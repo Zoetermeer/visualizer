@@ -13,7 +13,7 @@
                        (#:nodes (any/c . -> . (listof any/c))
                         #:out-edges (any/c . -> . (listof any/c))
                         #:node-view (view? any/c . -> . view?)
-                        #:edge-view (node? node? . -> . view?)
+                        #:edge-view ((or/c view? #f) node? node? . -> . view?)
                         #:scale-to-canvas? boolean?)
                        #:rest (listof interaction?)
                        ((or/c view? #f) any/c . -> . view?))]
