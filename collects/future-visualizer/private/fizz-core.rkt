@@ -126,6 +126,9 @@
                     #:layout layout
                     . interactions)
   (λ (parent-view data)
+    ;Each invocation needs its own copies of interactions
+    (define my-inters (map (λ (i) (interaction (interaction-type i)
+                                               (interaction-handler i))) interactions))
     (define nds (map (λ (v) (node v '() '())) (nodes data)))
     (when (and (not (null? nds)) (not node-view-builder))
       (error 'build-view "view with nodes must have an associated node view"))
@@ -141,9 +144,9 @@
         (set-node-in-edges! o-n (cons e (node-in-edges o-n)))))
     (set-view-layout-drawer! vw ((curry layout) vw))
     ;Evaluate each interaction's view builder and set its parent
-    (for ([int (in-list interactions)])
+    (for ([int (in-list my-inters)])
       (set-interaction-view! int ((interaction-handler int) vw data)))
-    (set-view-interactions! vw interactions)
+    (set-view-interactions! vw my-inters)
     vw))
 
 (struct profile (start-time end-time all-futures))

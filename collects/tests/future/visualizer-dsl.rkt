@@ -146,6 +146,9 @@
 (check-true ((set-count dist-nviews) . > . 1))
 (define all-inters (flatten (map (λ (v) (view-interactions v)) (set->list dist-nviews))))
 ;Make sure interaction views have the right parents
+(define dist-views (for/seteq ([i (in-list all-inters)])
+                       (interaction-view i)))
+(check-equal? (set-count dist-views) (* 2 (length (view-nodes v4))))
 (define dist-parents (for/seteq ([i (in-list all-inters)])
                        (view-parent (interaction-view i))))
 (check-true ((set-count dist-parents) . > . 1))
