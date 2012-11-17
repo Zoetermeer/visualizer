@@ -127,6 +127,8 @@
                     . interactions)
   (λ (parent-view data)
     ;Each invocation needs its own copies of interactions
+    ;Would be nicer to use struct-copy here, but it seems to choke
+    ;when a struct has #:auto fields
     (define my-inters (map (λ (i) (interaction (interaction-type i)
                                                (interaction-handler i))) interactions))
     (define nds (map (λ (v) (node v '() '())) (nodes data)))

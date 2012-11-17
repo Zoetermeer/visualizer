@@ -211,9 +211,7 @@
                 #:fore-color [fore-color "black"]
                 #:stroke-width [stroke-width 0]
                 #:stroke-color [stroke-color "black"]
-                #:text [text #f] 
-                #:x [x 0]
-                #:y [y 0]
+                #:text [text #f]
                 . interactions) 
   (apply build-view 
          'circle
