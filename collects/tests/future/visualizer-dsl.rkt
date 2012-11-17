@@ -73,18 +73,6 @@
 (check-true (views-have-bounds? v2))
 (check-true (nodes-have-views? v2))
 
-(define inv-child-builder (build-view 'badv
-                                      #:nodes (λ (data) '(1 2 3 4 5))
-                                      #:out-edges (λ (x)
-                                                    (case x 
-                                                      [(1) '(5 6)]
-                                                      [else '()]))
-                                      #:node-view (circle #:diameter 20
-                                                          #:back-color "black")
-                                      #:edge-view (edge-line)
-                                      #:layout (tree)))
-(check-exn exn:fail? (λ () (inv-child-builder #f #f))) ;Invalid child
-
 ;Need to test for cycle detection when using tree
 ;layout, but arbitrary graphs are otherwise okay
 (define cycle-builder (build-view 'with-cycles
@@ -112,14 +100,6 @@
 (check-exn exn:fail? (λ () (v3-builder #f #f)))
 
 ;Simple interaction view for testing
-(define (offset-circle offx offy)
-  (circle #:diameter 100
-             #:back-color "red"
-             #:fore-color "white"
-             #:text "I am a hovering circle!"
-             #:x offx
-             #:y offy))
-
 (define v4-builder 
   (build-view 'view4
               #:nodes (λ (data) '(1 2 3 4 5))
@@ -130,8 +110,14 @@
                               [else '()]))
               #:node-view (circle #:diameter 30
                                   #:back-color "blue" 
-                                  (interaction 'hover (offset-circle 40 40))
-                                  (interaction 'click (offset-circle -40 -40)))
+                                  (interaction 'hover (circle #:diameter 100
+                                                              #:back-color "red"
+                                                              #:fore-color "white" 
+                                                              #:text "I am a hovering circle!"))
+                                  (interaction 'hover (circle #:diameter 50
+                                                              #:back-color "green"
+                                                              #:fore-color "white" 
+                                                              #:text "I am another hovering circle!")))
               #:edge-view (edge-line)
               #:layout (tree)))
 (define v4 (v4-builder #f #f))
@@ -152,6 +138,25 @@
 (define dist-parents (for/seteq ([i (in-list all-inters)])
                        (view-parent (interaction-view i))))
 (check-true ((set-count dist-parents) . > . 1))
+
+(define myView-builder 
+  (build-view 'mySuperView
+              #:nodes (λ (n) (build-list n identity))
+              #:node-view (circle #:diameter (auto 20) 
+                                  #:back-color "blue"
+                                  #:fore-color "red"
+                                  #:text "a"
+                                  (interaction 'hover (circle #:diameter 100 
+                                                              #:back-color "blue")))
+              #:out-edges (λ (x) (list (+ x 1)))
+              #:edge-view (edge-line)
+              #:layout (stack #:orientation 'horizontal)))
+(define mv (myView-builder #f 10))
+(for ([nd (in-list (view-nodes mv))])
+  (case (node-data nd)
+    [(9) (check-equal? (node-out-edges nd) '())]
+    [else (check-equal? (length (node-out-edges nd)) 1)]))
+
 
 
                                   

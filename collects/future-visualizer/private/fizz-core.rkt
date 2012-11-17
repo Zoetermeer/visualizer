@@ -1,6 +1,6 @@
 #lang racket/base
 (require (only-in racket/match match-define)
-         (only-in racket/function curry))
+         (only-in racket/function curry identity))
 (provide current-visualization
          current-visualization-data
          current-node-data
@@ -111,11 +111,9 @@
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
 ;to some element of vs.
 ;;find-nodes : (listof any) (listof node) -> (listof node)
-(define (find-nodes vs nodes)
+(define (find-nodes vs nodes) 
   (define ns (map (λ (v) (findf (λ (n) (equal? (node-data n) v)) nodes)) vs))
-  (when (list? (member #f ns))
-    (error 'find-nodes "Nodes could not be found for values in the list: ~a" vs))
-  ns)
+  (filter identity ns))
 
 (define (build-view name 
                     #:nodes [nodes (λ (data) '())]
