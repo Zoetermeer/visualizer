@@ -25,7 +25,7 @@
           #:nodes nodes 
           #:out-edges out-edges 
           #:layout layout)
-  (build-view name 
+  (define-view name 
               #:nodes nodes
               #:out-edges out-edges
               #:node-view (circle #:diameter 30
@@ -33,7 +33,7 @@
               #:edge-view (edge-line)
               #:layout layout))
 
-(define v1-builder (build-view 'view1
+(define v1-builder (define-view 'view1
                        #:layout (λ (view vregion)
                                   (blank 400 400))))
 
@@ -45,7 +45,7 @@
 (check-true (null? (view-nodes v1)))
 (check-true (null? (view-interactions v1)))
 
-(define v2-builder (build-view 'view2
+(define v2-builder (define-view 'view2
                                #:nodes (λ (data) '(1 2 3 4 5))
                                #:out-edges (λ (n)
                                              (case n
@@ -75,7 +75,7 @@
 
 ;Need to test for cycle detection when using tree
 ;layout, but arbitrary graphs are otherwise okay
-(define cycle-builder (build-view 'with-cycles
+(define cycle-builder (define-view 'with-cycles
                                   #:nodes (λ (data) '(1 2 3 4 5))
                                   #:out-edges (λ (x)
                                                 (case x 
@@ -88,7 +88,7 @@
                                   #:layout (tree)))
 
 ;Try creating a view with nodes but no node view
-(define v3-builder (build-view 'view3
+(define v3-builder (define-view 'view3
                                #:nodes (λ (data) '(1 2 3 4 5))
                                #:out-edges (λ (x)
                                              (case x 
@@ -97,11 +97,11 @@
                                                [else '()]))
                                #:edge-view (edge-line)
                                #:layout (tree)))
-(check-exn exn:fail? (λ () (v3-builder #f #f)))
+(check-not-exn (λ () (v3-builder #f #f)))
 
 ;Simple interaction view for testing
 (define v4-builder 
-  (build-view 'view4
+  (define-view 'view4
               #:nodes (λ (data) '(1 2 3 4 5))
               #:out-edges (λ (x)
                             (case x 
@@ -140,7 +140,7 @@
 (check-true ((set-count dist-parents) . > . 1))
 
 (define myView-builder 
-  (build-view 'mySuperView
+  (define-view 'mySuperView
               #:nodes (λ (n) (build-list n identity))
               #:node-view (circle #:diameter (auto 20) 
                                   #:back-color "blue"
