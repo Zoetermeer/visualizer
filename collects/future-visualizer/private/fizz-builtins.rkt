@@ -120,33 +120,39 @@
                             vregion))
         (values (max maxx mx)
                 (max maxy my))))    
-    ;Draw three picts: 
-    ;1) Blank with nodes superimposed
-    ;2) Blank with edges superimposed
-    ;3) Background pict (colored square or whatever)
-    ;Then overlay 1 -> 2 -> 3
-    (define-values (np ep) (for/fold ([np (blank maxx maxy)]
-                                      [ep (blank maxx maxy)]) ([n (in-list nodes)])
-                             (define nview (node-view n))
-                             (define-values (ncx ncy) (control-point nview 'center 'center))
-                             (values (pin-over np 
-                                               (view-origin-x nview)
-                                               (view-origin-y nview)
-                                               (view-layout-pict nview))
-                                     (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
-                                       (define edge-pict ((view-layout-drawer (edge-view ed)) vregion))
-                                       (set-view-bounds! (edge-view ed) (rect ncx 
-                                                                              ncy 
-                                                                              (pict-width edge-pict) 
-                                                                              (pict-height edge-pict)))
-                                       (pin-over out-ep
-                                                 ncx
-                                                 ncy
-                                                 edge-pict)))))
-    (pin-over (pin-over ep 0 0 np)
-              0
-              0
-              (blank maxx maxy))))    
+    (draw-the-view vw vregion)))  
+
+(define (draw-the-view vw vregion)
+  ;Draw three picts: 
+  ;1) Blank with nodes superimposed
+  ;2) Blank with edges superimposed
+  ;3) Background pict (colored square or whatever)
+  ;Then overlay 1 -> 2 -> 3
+  (define nodes (view-nodes vw))
+  (define-values (mx my) (values (viewable-region-width vregion)
+                                 (viewable-region-height vregion)))
+  (define-values (np ep) (for/fold ([np (blank mx my)]
+                                    [ep (blank mx my)]) ([n (in-list nodes)])
+                           (define nview (node-view n))
+                           (define-values (ncx ncy) (control-point nview 'center 'center))
+                           (values (pin-over np 
+                                             (view-origin-x nview)
+                                             (view-origin-y nview)
+                                             (view-layout-pict nview))
+                                   (for/fold ([out-ep ep]) ([ed (in-list (node-out-edges n))])
+                                     (define edge-pict ((view-layout-drawer (edge-view ed)) vregion))
+                                     (set-view-bounds! (edge-view ed) (rect ncx 
+                                                                            ncy 
+                                                                            (pict-width edge-pict) 
+                                                                            (pict-height edge-pict)))
+                                     (pin-over out-ep
+                                               ncx
+                                               ncy
+                                               edge-pict)))))
+  (pin-over (pin-over ep 0 0 np)
+            0
+            0
+            (blank mx my)))
 
 (define (stack #:orientation [orientation 'vertical]
                #:margin [margin 10])
@@ -155,21 +161,18 @@
     (for ([n (in-list nodes)])
       (set-view-layout-pict! (node-view n) 
                              ((view-layout-drawer (node-view n)) vregion)))
-    (define-values (pct _) (for/fold ([pct (blank (viewable-region-width vregion)
-                                                  (viewable-region-height vregion))]
-                                      [∆ margin]) ([n (in-list nodes)])
-                             (define p (view-layout-pict (node-view n)))
-                             (define-values (x y incf) (case orientation
-                                                         [(vertical) (values margin ∆ pict-height)]
-                                                         [(horizontal) (values ∆ margin pict-width)]))
-                             (set-view-bounds! (node-view n) 
-                                               (rect x y (pict-width p) (pict-height p)))                             
-                             (values (pin-over pct 
-                                               x
-                                               y
-                                               p)
-                                     (+ ∆ (incf p) margin))))
-    pct))
+    (define base (blank (viewable-region-width vregion)
+                        (viewable-region-height vregion)))
+    (define _ (for/fold ([∆ margin]) ([n (in-list nodes)])
+                (define p (view-layout-pict (node-view n)))
+                (set-view-layout-pict! (node-view n) p)
+                (define-values (x y incf) (case orientation
+                                            [(vertical) (values margin ∆ pict-height)]
+                                            [(horizontal) (values ∆ margin pict-width)]))
+                (set-view-bounds! (node-view n) 
+                                  (rect x y (pict-width p) (pict-height p)))
+                (+ ∆ (incf p) margin)))
+    (draw-the-view vw vregion)))
 
 (define (hierarchical-list vw vregion) 0)
 
@@ -205,6 +208,14 @@
     
 ;BUILT-IN VIEWS
 ;--------------
+#|
+(define (views . vws) 
+  (define-view 'multi
+    #:layout (λ (vw vregion)
+               (define-values (ox oy) (view-origin vw))
+|#
+              
+
 ;Circle view 
 (define (circle #:diameter [diameter (auto 10)]
                 #:back-color [back-color "blue"]
@@ -245,30 +256,39 @@
   (build-view 'rectangle
               #:layout
               (λ (vw vregion)
-                  (define (draw-rect w h strokew strokec)
+                (match-define `(,w ,h ,bc ,fc ,stth, stc ,txt) 
+                  (properties-get (view-data vw) 
+                                  width 
+                                  height
+                                  back-color
+                                  fore-color
+                                  stroke-thickness
+                                  stroke-color
+                                  text))
+                  (define (draw-rect wid ht strokew strokec)
                     (cond 
                       [(zero? strokew)
-                       (colorize (filled-rectangle w h) back-color)]
+                       (colorize (filled-rectangle wid ht) back-color)]
                       [else
-                       (define inner (colorize (filled-rectangle (- w (* strokew 2)) 
-                                                                 (- h (* strokew 2)))
+                       (define inner (colorize (filled-rectangle (- wid (* strokew 2)) 
+                                                                 (- ht (* strokew 2)))
                                                back-color))
-                       (define outer (colorize (filled-rectangle w h) strokec))
+                       (define outer (colorize (filled-rectangle wid ht) strokec))
                        (cc-superimpose outer inner)]))                  
                   (cond 
                     [text 
-                     (define t (colorize (pict-text (format "~a" text)) fore-color))
-                     (define r (draw-rect (abs-or-auto-for t pict-width width)
-                                          (abs-or-auto-for t pict-height height)
-                                          stroke-thickness
-                                          stroke-color))
+                     (define t (colorize (pict-text (format "~a" txt)) fc))
+                     (define r (draw-rect (abs-or-auto-for t pict-width w)
+                                          (abs-or-auto-for t pict-height h)
+                                          stth
+                                          stc))
                      (cc-superimpose r t)]
                     [else
                      (cond 
-                       [(or (auto? width) (auto? height))
+                       [(or (auto? w) (auto? h))
                         (error 'rect "Width/height cannot be auto if container is empty.")]
                        [else
-                        (draw-rect width height stroke-thickness stroke-color)])]))))
+                        (draw-rect w h stth stc)])]))))
 
 ;Convenience view for edge lines in graphs
 (define (edge-line #:style [style 'solid]
