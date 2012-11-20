@@ -26,6 +26,7 @@
          build-trace 
          missing-data?
          event-has-duration? 
+         what
          op-name 
          touch-event?
          allocation-event? 
@@ -43,7 +44,7 @@
          event-or-gc-time
          proc-id-or-gc<?)
 
-(define-struct future-event (future-id process-id what time prim-name user-data) 
+(define-struct future-event (future-id process-id what time prim-name user-data stack-trace) 
   #:prefab)
 
 (define-struct gc-info (major? 

@@ -643,7 +643,7 @@ void futures_init(void)
   syms[FEVENT_HANDLE_RTCALL] = sym;
 
   sym = scheme_intern_symbol("future-event");
-  stype = scheme_lookup_prefab_type(sym, 6);
+  stype = scheme_lookup_prefab_type(sym, 7);
   fs->fevent_prefab = stype;
 
   init_fevent(&fs->runtime_fevents);
@@ -1035,7 +1035,7 @@ static void free_fevent(Fevent_Buffer *b)
   }
 }
 
-static void record_fevent_with_data(int what, int fid, int data) 
+static void record_fevent_with_data(int what, int fid, int data, Scheme_Object *stack_trace) 
   XFORM_SKIP_PROC 
 {
   Scheme_Future_Thread_State *fts = scheme_future_thread_state;
@@ -1053,6 +1053,10 @@ static void record_fevent_with_data(int what, int fid, int data)
   b->a[b->pos].what = what;
   b->a[b->pos].fid = fid;
   b->a[b->pos].data = data;
+  if (!stack_trace)
+    b->a[b->pos].stack_trace = scheme_false;
+  else
+    b->a[b->pos].stack_trace = stack_trace;
 
   b->pos++;
   if (b->pos == FEVENT_BUFFER_SIZE) {
@@ -1064,7 +1068,7 @@ static void record_fevent_with_data(int what, int fid, int data)
 static void record_fevent(int what, int fid) XFORM_SKIP_PROC
 /* call with the lock or in the runtime thread */
 {
-  record_fevent_with_data(what, fid, 0);  
+  record_fevent_with_data(what, fid, 0, NULL);  
 }
 
 static void init_traversal(Fevent_Buffer *b)
@@ -1091,7 +1095,8 @@ static void log_future_event(Scheme_Future_State *fs,
                              int what, 
                              double timestamp, 
                              int fid, 
-                             Scheme_Object *user_data) 
+                             Scheme_Object *user_data, 
+                             Scheme_Object *stack_trace) 
 {
   Scheme_Object *data, *v;
 
@@ -1120,6 +1125,11 @@ static void log_future_event(Scheme_Future_State *fs,
     user_data = scheme_false;
 
   ((Scheme_Structure *)data)->slots[5] = user_data;
+
+  if (!stack_trace)
+    stack_trace = scheme_false;
+  
+  ((Scheme_Structure *)data)->slots[6] = stack_trace;
   
   scheme_log_w_data(scheme_get_future_logger(), SCHEME_LOG_DEBUG, 0,
                     data,                 
@@ -1143,7 +1153,8 @@ static Scheme_Object *mark_future_trace_end(int argc, Scheme_Object **argv)
                    FEVENT_STOP_TRACE, 
                    get_future_timestamp(),
                    0, 
-                   0);
+                   0, 
+                   NULL);
 
   return scheme_void;
 }
@@ -1157,6 +1168,7 @@ static void log_overflow_event(Scheme_Future_State *fs, int which, double timest
                    FEVENT_MISSING, 
                    timestamp, 
                    0, 
+                   NULL, 
                    NULL);
 }
 
@@ -1243,7 +1255,8 @@ static void flush_future_logs(Scheme_Future_State *fs)
                        min_b->a[min_b->i].what, 
                        min_b->a[min_b->i].timestamp, 
                        min_b->a[min_b->i].fid, 
-                       data_val);
+                       data_val, 
+                       NULL);
 
       --min_b->count;
       min_b->i++;
@@ -1327,7 +1340,7 @@ static Scheme_Object *make_future(Scheme_Object *lambda, int enqueue, future_t *
   mzrt_mutex_lock(fs->future_mutex);
   futureid = ++fs->next_futureid;
   ft->id = futureid;
-  record_fevent_with_data(FEVENT_CREATE, (cur_ft ? cur_ft->id : NO_FUTURE_ID), futureid);
+  record_fevent_with_data(FEVENT_CREATE, (cur_ft ? cur_ft->id : NO_FUTURE_ID), futureid, NULL);
   if (enqueue) { 
     if (ft->status != PENDING_OVERSIZE)
       enqueue_future(fs, ft);
@@ -1385,7 +1398,7 @@ Scheme_Object *scheme_future(int argc, Scheme_Object *argv[])
 
         mzrt_mutex_lock(fs->future_mutex);
         ft->id = ++fs->next_futureid;
-        record_fevent_with_data(FEVENT_CREATE, (cur_ft ? cur_ft->id : NO_FUTURE_ID), ft->id);
+        record_fevent_with_data(FEVENT_CREATE, (cur_ft ? cur_ft->id : NO_FUTURE_ID), ft->id, NULL);
         enqueue_future(fs, ft);
         mzrt_mutex_unlock(fs->future_mutex);
 
@@ -2112,7 +2125,8 @@ Scheme_Object *touch(int argc, Scheme_Object *argv[])
                        FEVENT_RTCALL_TOUCH, 
                        get_future_timestamp(),
                        ft->id, 
-                       targid_obj);
+                       targid_obj, 
+                       NULL);
     }
       
     return general_touch(argc, argv);
@@ -2853,7 +2867,8 @@ static void future_do_runtimecall(Scheme_Future_Thread_State *fts,
     record_fevent(FEVENT_OVERFLOW, fid);
   } else if (func == touch) {
     record_fevent(FEVENT_RTCALL_TOUCH, fid);
-  } else {
+  } 
+  else {
     record_fevent(is_atomic ? FEVENT_RTCALL_ATOMIC : FEVENT_RTCALL, fid);
   }
 
@@ -3405,7 +3420,7 @@ static void do_invoke_rtcall(Scheme_Future_State *fs, future_t *future)
 
   if (scheme_log_level_p(scheme_get_future_logger(), SCHEME_LOG_DEBUG)) {
     const char *src;
-    Scheme_Object *userdata;
+    Scheme_Object *userdata, *mark_set, *st;
 
     src = future->source_of_request;
     if (future->source_type == FSRC_RATOR) {
@@ -3446,6 +3461,14 @@ static void do_invoke_rtcall(Scheme_Future_State *fs, future_t *future)
         }
       }
 
+    /* Try to get a stack trace */
+    st = NULL;
+    if (!future->rt_prim_is_atomic) {
+      /* If a barricade, attempt to get the stack trace */
+      mark_set = scheme_current_continuation_marks(NULL);
+      st = scheme_get_stack_trace(mark_set);
+    } 
+    
     log_future_event(fs,
                       "id %d, process %d: %s: %s; time: %f",
                       src,
@@ -3453,7 +3476,8 @@ static void do_invoke_rtcall(Scheme_Future_State *fs, future_t *future)
                       (future->rt_prim_is_atomic ? FEVENT_HANDLE_RTCALL_ATOMIC : FEVENT_HANDLE_RTCALL),
                       get_future_timestamp(),
                       future->id, 
-                      userdata);
+                      userdata, 
+                      st);
   }
 
   if (((future->source_type == FSRC_RATOR)
