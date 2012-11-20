@@ -149,7 +149,7 @@
               (blank maxx maxy))))    
 
 (define (stack #:orientation [orientation 'vertical]
-               #:margin [margin 0])
+               #:margin [margin 10])
   (λ (vw vregion)
     (define nodes (view-nodes vw))
     (for ([n (in-list nodes)])
@@ -206,9 +206,9 @@
 ;BUILT-IN VIEWS
 ;--------------
 ;Circle view 
-(define (circle #:diameter diameter
-                #:back-color back-color
-                #:fore-color [fore-color "black"]
+(define (circle #:diameter [diameter (auto 10)]
+                #:back-color [back-color "blue"]
+                #:fore-color [fore-color "white"]
                 #:stroke-width [stroke-width 0]
                 #:stroke-color [stroke-color "black"]
                 #:text [text #f]
@@ -235,10 +235,10 @@
 
 
 ;Rectangle view
-(define (rectangle #:width width
-                   #:height height
-                   #:back-color back-color
-                   #:fore-color [fore-color "black"]
+(define (rectangle #:width [width (auto 10)]
+                   #:height [height (auto 10)]
+                   #:back-color [back-color "blue"]
+                   #:fore-color [fore-color "white"]
                    #:stroke-thickness [stroke-thickness 0]
                    #:stroke-color [stroke-color "black"]
                    #:text [text #f])
