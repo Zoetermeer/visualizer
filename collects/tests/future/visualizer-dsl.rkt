@@ -157,6 +157,25 @@
     [(9) (check-equal? (node-out-edges nd) '())]
     [else (check-equal? (length (node-out-edges nd)) 1)]))
 
+(check-not-exn 
+ (λ ()
+   (define (build-list size)
+     (if (= 0 size) 
+         '()
+         (cons size (build-list (- size 1)))))
+   (define myView (define-view 'mySuperView
+                    #:nodes build-list
+                    #:node-view (circle #:diameter (auto 20) 
+                                        #:back-color "blue"
+                                        #:fore-color "red"
+                                        #:text "a"
+                                        (interaction 'hover (circle #:diameter 100 
+                                                                    #:back-color "blue")))
+                    #:out-edges (lambda (x) (if (= x 10) '() (list (+ x 1))))
+                    #:layout (stack #:orientation 'horizontal)
+                    ))
+   (myView #f 10)))
+
 
 
                                   
