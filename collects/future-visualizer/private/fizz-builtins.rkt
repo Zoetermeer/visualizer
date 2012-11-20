@@ -120,9 +120,9 @@
                             vregion))
         (values (max maxx mx)
                 (max maxy my))))    
-    (draw-the-view vw vregion)))  
+    (draw-view vw vregion)))  
 
-(define (draw-the-view vw vregion)
+(define (draw-view vw vregion)
   ;Draw three picts: 
   ;1) Blank with nodes superimposed
   ;2) Blank with edges superimposed
@@ -134,6 +134,8 @@
   (define-values (np ep) (for/fold ([np (blank mx my)]
                                     [ep (blank mx my)]) ([n (in-list nodes)])
                            (define nview (node-view n))
+                           (unless (view-bounds nview)
+                             (error 'draw-view "one or more nodes did not have position information"))
                            (define-values (ncx ncy) (control-point nview 'center 'center))
                            (values (pin-over np 
                                              (view-origin-x nview)
@@ -172,7 +174,7 @@
                 (set-view-bounds! (node-view n) 
                                   (rect x y (pict-width p) (pict-height p)))
                 (+ ∆ (incf p) margin)))
-    (draw-the-view vw vregion)))
+    (draw-view vw vregion)))
 
 (define (hierarchical-list vw vregion) 0)
 
@@ -242,8 +244,7 @@
                             (define c (colorize (disk the-diam) bc))
                             (cc-superimpose c t)]
                            [else
-                            (colorize (disk diam) bc)]))))
-
+                            (colorize (disk diam) bc)]))))               
 
 ;Rectangle view
 (define (rectangle #:width [width (auto 10)]
@@ -252,43 +253,46 @@
                    #:fore-color [fore-color "white"]
                    #:stroke-thickness [stroke-thickness 0]
                    #:stroke-color [stroke-color "black"]
-                   #:text [text #f])
-  (build-view 'rectangle
-              #:layout
-              (λ (vw vregion)
-                (match-define `(,w ,h ,bc ,fc ,stth, stc ,txt) 
-                  (properties-get (view-data vw) 
-                                  width 
-                                  height
-                                  back-color
-                                  fore-color
-                                  stroke-thickness
-                                  stroke-color
-                                  text))
-                  (define (draw-rect wid ht strokew strokec)
-                    (cond 
-                      [(zero? strokew)
-                       (colorize (filled-rectangle wid ht) back-color)]
-                      [else
-                       (define inner (colorize (filled-rectangle (- wid (* strokew 2)) 
-                                                                 (- ht (* strokew 2)))
-                                               back-color))
-                       (define outer (colorize (filled-rectangle wid ht) strokec))
-                       (cc-superimpose outer inner)]))                  
-                  (cond 
-                    [text 
-                     (define t (colorize (pict-text (format "~a" txt)) fc))
-                     (define r (draw-rect (abs-or-auto-for t pict-width w)
-                                          (abs-or-auto-for t pict-height h)
-                                          stth
-                                          stc))
-                     (cc-superimpose r t)]
-                    [else
-                     (cond 
-                       [(or (auto? w) (auto? h))
-                        (error 'rect "Width/height cannot be auto if container is empty.")]
-                       [else
-                        (draw-rect w h stth stc)])]))))
+                   #:text [text #f] 
+                   . interactions)
+  (apply build-view 
+         'rectangle 
+         interactions
+         #:layout
+         (λ (vw vregion)
+           (match-define `(,w ,h ,bc ,fc ,stth, stc ,txt) 
+             (properties-get (view-data vw) 
+                             width 
+                             height
+                             back-color
+                             fore-color
+                             stroke-thickness
+                             stroke-color
+                             text))
+           (define (draw-rect wid ht strokew strokec)
+             (cond 
+               [(zero? strokew)
+                (colorize (filled-rectangle wid ht) bc)]
+               [else
+                (define inner (colorize (filled-rectangle (- wid (* strokew 2)) 
+                                                          (- ht (* strokew 2)))
+                                        bc))
+                (define outer (colorize (filled-rectangle wid ht) strokec))
+                (cc-superimpose outer inner)]))                  
+           (cond 
+             [text 
+              (define t (colorize (pict-text (format "~a" txt)) fc))
+              (define r (draw-rect (abs-or-auto-for t pict-width w)
+                                   (abs-or-auto-for t pict-height h)
+                                   stth
+                                   stc))
+              (cc-superimpose r t)]
+             [else
+              (cond 
+                [(or (auto? w) (auto? h))
+                 (error 'rect "Width/height cannot be auto if container is empty.")]
+                [else
+                 (draw-rect w h stth stc)])]))))
 
 ;Convenience view for edge lines in graphs
 (define (edge-line #:style [style 'solid]
