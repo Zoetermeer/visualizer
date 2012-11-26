@@ -22,9 +22,8 @@
     (new fizz-canvas% 
          [parent main-panel]
          [pict-builder (λ (vregion)
-                         (set-view-bounds! vw (rect 0 0 (viewable-region-width vregion) (viewable-region-height vregion)))
-                         ((view-layout-drawer vw) vregion))]
-         [hover-handler (λ (x y vregion) 
+                         (draw vw (rect 0 0 (viewable-region-width vregion) (viewable-region-height vregion))))]
+         #;[hover-handler (λ (x y vregion) 
                           (define hovered (let loop ([nds (view-nodes vw)])
                                             (cond 
                                               [(empty? nds) #f]

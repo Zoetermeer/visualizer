@@ -1,6 +1,7 @@
 #lang racket/base
 (require (only-in racket/match match-define)
-         (only-in racket/function curry identity))
+         (only-in racket/function curry identity)
+         (only-in slideshow/pict filled-rectangle colorize))
 (provide node-width
          node-height
          node-origin-x
@@ -14,9 +15,14 @@
          (struct-out rect)
          view
          nodes
+         edges-from
+         layout
          circle
          rectangle
-         tree)
+         line
+         tree
+         stack
+         draw)
 
 (define (circle #:diameter [diameter (auto 10)]
                 #:back-color [back-color "blue"]
@@ -52,10 +58,17 @@
                 width
                 height)))
 
+(define (line from to)
+  (_line from to))
+
 ;Tree layout
 ;Is just the node argument enough?
 (define (tree #:margin [margin 10])
-  (λ (node) 
+  (λ (node bounds) 
+    0))
+
+(define (stack #:orientation [orientation 'horizontal] #:margin [margin 10])
+  (λ (node bounds)
     0))
 
 ;Node is the supertype for all visual elements (primitives or compounds/views)
@@ -76,10 +89,17 @@
                          opacity) #:transparent)
 (struct _circle _primnode (diam))
 (struct _rectangle _primnode (width height))
-(struct _line _primedge (from to))
+(struct _line _primedge ())
 (struct _label _primnode (text))
   
 (struct _view _node (scale-to-canvas? layout))
+
+;Need to update each element's bounds, including
+;the root (which will just be the 'bounds' argument).
+(define (draw elem bounds) 
+  (colorize (filled-rectangle (rect-w bounds)
+                              (rect-h bounds))
+            "red"))
 
 
 (define (nodes get-node-values
@@ -100,20 +120,24 @@
           (set-_element-parent! cn n))))
     roots))
 
-(define (edges-to get-from-values
-                  #:shape [shape _line])
-  (λ (to-node nodes)
-    (define froms (get-from-values (_node-data to-node)))
-    (define from-nodes (find-nodes froms nodes))
-    (for ([fn (in-list from-nodes)])
-      (set-_node-to-edges! (
-    (for ([edge (in-list ->s)])
-          (set-_node-to-edges! (cons edge (_node-to-edges n)))
-          (set-_node-from-edges! (cons edge (_node-from-edges to-node))))
-    
-    (map (λ (fn) 
-           (shape fn to-node))
-         from-nodes)))
+(define (edges-from get-to-values
+                    #:shape [shape _line])
+  (λ (from-node all-nodes)
+    (define tos (get-to-values (_node-data from-node)))
+    (define to-nodes (find-nodes tos all-nodes))
+    (for ([tn (in-list to-nodes)])
+      (define e (shape from-node tn))
+      (set-_element-parent! e (_element-parent from-node))
+      (set-_node-to-edges! tn (cons e (_node-to-edges tn)))
+      (set-_node-from-edges! from-node (cons e (_node-from-edges from-node))))))
+
+;Apply lt if a function with 0 arity, 
+;so we can say (layout tree) instead 
+;of (layout (tree)). 
+(define (layout lt)
+  (cond 
+    [(zero? (procedure-arity lt)) (lt)]
+    [else lt]))
 
 #|
 (view 
@@ -126,21 +150,16 @@
               [egto #f] 
               [egfrom #f] 
               [scale-to-canvas? #f]
-              [layout tree])
+              [layout tree] 
+              . interactions)
   (λ (data)
     (define root-nodes (nds data))
     (when egto
       (for ([n (in-list root-nodes)])
-        (define ->s (egto n root-nodes))
-        (for ([edge (in-list ->s)])
-          (set-_node-to-edges! (cons edge (_node-to-edges n)))
-          (set-_node-from-edges! (cons edge (_node-from-edges to-node))))))
+        (egto n root-nodes)))
     (when egfrom
       (for ([n (in-list root-nodes)])
-        (define <-s (egfrom n root-nodes))
-        (for ([edge (in-list <-s)])
-          (set-_node-to-edges! (cons edge (_node-to-edges from-node)))
-          (set-_node-from-edges! (cons edge (_node-from-edges n))))))
+        (egfrom n root-nodes)))
     (_view scale-to-canvas? layout)))
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 

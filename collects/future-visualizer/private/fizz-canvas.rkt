@@ -1,6 +1,9 @@
 #lang racket/gui
 (require framework 
-         slideshow/pict 
+         (only-in slideshow/pict 
+                  blank 
+                  pict->bitmap
+                  scale)
          "display.rkt"
          "fizz-core.rkt") 
 (provide fizz-canvas%) 
@@ -15,7 +18,6 @@
     (inherit get-dc get-client-size refresh get-view-start)
     (define bp pict-builder) ;Builds the main pict for the canvas
     (define mh hover-handler) ;Mouse hover handler
-    ;(define ob overlay-builder) ;Hover overlay pict builder
     (define ch click-handler) ;Mouse click handler  
     (define redraw-on-size redraw-on-resize) ;Whether we should rebuild the pict for on-size events
     (define scale-factor 1)
@@ -30,6 +32,9 @@
     (define pending-interaction-views '())
     
     (define/private (ob vregion scale)
+      (blank (viewable-region-width vregion)
+             (viewable-region-height vregion)))
+    #;(define/private (ob vregion scale)
       (for/fold ([p (blank (viewable-region-width vregion) (viewable-region-height vregion))])
         ([inter (in-list pending-interaction-views)])
         (define iview (interaction-view inter))
