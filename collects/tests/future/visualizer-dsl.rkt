@@ -38,8 +38,8 @@
 (check-true (procedure? v2-builder))
 (check-equal? (procedure-arity v2-builder) 1)
 (define v2 (v2-builder #f))
-(check-equal? (length (_node-children v2)) 5)
-(check-equal? (length (filter (λ (nd) (or (not (_node-from-edges nd)) (null? (_node-from-edges nd)))) 
+(check-equal? (length (_node-children v2)) 7) ;5 nodes + 2 edges
+(check-equal? (length (filter (λ (nd) (and (_node? nd) (null? (_node-from-edges nd)))) 
                               (_node-children v2)))
               4)
 
@@ -48,7 +48,7 @@
 (check-true (rect? (_element-bounds v2)))
 (check-equal? (rect-w (_element-bounds v2)) (rect-w vr))
 (check-equal? (rect-h (_element-bounds v2)) (rect-h vr))
-(check-equal? (length (_node-children v2)) 7) ;5 node subviews + 2 edge subviews
+(check-equal? (length (_node-children v2)) 7) ;5 node children + 2 edge children
 (check-true (elements-have-bounds? v2))
 
 ;Need to test for cycle detection when using tree

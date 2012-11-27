@@ -74,6 +74,10 @@
 ;Tree layout
 ;;set-tree-layout! : _node uint uint uint uint rect -> (values uint uint)
 (define (set-tree-layout! parent margin x y mx my bounds)
+  (define (set-edge-bounds! edge parent child)
+    (define-values (pcx pcy) (control-point parent 'center 'center))
+    (define-values (ccx ccy) (control-point child 'center 'center))
+    (set-_element-bounds! edge (rect (min pcx ccx) (min pcy ccy) (abs (- pcx ccx)) (abs (- pcy ccy)))))    
   ;Draw the node to get its dimensions, then cache
   (define pct (draw parent bounds))
   (set-_element-pict! parent pct)
@@ -92,7 +96,8 @@
     [else
      (define child-y (+ y h))
      (define parenty (+ y margin))
-     (define first-child (_edge-to (car (_node-from-edges parent))))
+     (define fc-edge (car (_node-from-edges parent)))
+     (define first-child (_edge-to fc-edge))
      (cond 
        [(= 1 (length (_node-from-edges parent))) ;Align parent and child vertically
         (define-values (cmx cmy) (set-tree-layout! first-child
@@ -108,11 +113,13 @@
         (define xe (+ nx w))
         (define ye (+ ny h))
         (set-_element-bounds! parent (rect nx ny w h))
+        (set-edge-bounds! fc-edge parent first-child)
         (values (max cmx xe)
                 (max cmy ye))]
        [else
         (define-values (cmx cmy)
-          (for/fold ([xacc x] [yacc y]) ([child (in-list (map _edge-to (_node-from-edges parent)))])
+          (for/fold ([xacc x] [yacc y]) ([cedge (in-list (_node-from-edges parent))])
+            (define child (_edge-to cedge))
             (define-values (cmx cmy) (set-tree-layout! child
                                                        margin
                                                        xacc
@@ -138,8 +145,7 @@
     (set-_element-bounds! node bounds)
     (define data (_node-data node))
     (define nodes (_node-children node))
-    (define roots (filter (λ (n) (or (not (_node-to-edges n))
-                                     (null? (_node-to-edges n)))) nodes))
+    (define roots (filter (λ (n) (and (_node? n) (null? (_node-to-edges n)))) nodes))
     (when (null? roots)
       (error 'tree "expected a tree or collection of trees but got ~a in: ~a." roots node))
     (let loop ([maxx (rect-x bounds)] 
@@ -205,18 +211,25 @@
     [(_label? elem)
      (text (_label-text elem))]
     [(_line? elem)
-     (blank 10 10)] ;TODO: Fix!  How do we get 'dx' and 'dy'?
+     (define-values (fcx fcy) (control-point (_edge-from elem) 'center 'center))
+     (define-values (tcx tcy) (control-point (_edge-to elem) 'center 'center))
+     (set-_element-bounds! elem (rect fcx fcy (- fcx tcx) (- fcy tcy)))
+     (colorize (pip-line (- fcx fcy)
+                         (- tcx tcy)
+                         0)
+               (_primedge-color elem))]
     [(_view? elem) 
      ;Calculate layout (can we avoid doing this on each draw?)
-     ;Draw each child
      ((_view-layout elem) elem bounds)
+     ;Draw each child and overlay
      (define p (blank (rect-w bounds) (rect-h bounds)))
      (for/fold ([p p]) ([c (in-list (_node-children elem))])
+       (define cp (draw c (_element-bounds c)))
        (define b (_element-bounds c))
        (pin-over p
                  (element-origin-x c)
                  (element-origin-y c)
-                 (draw c (_element-bounds c))))]))
+                 cp))]))
 
 
 (define (nodes get-node-values
@@ -277,7 +290,10 @@
     (set-_node-children! vw root-nodes)
     (when edge-getter
       (for ([n (in-list root-nodes)])
-        (edge-getter n root-nodes)))
+        (define es (edge-getter n root-nodes))
+        (for ([e (in-list es)])
+          (set-_element-parent! e vw)
+          (set-_node-children! vw (cons e (_node-children vw))))))
     vw))
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
