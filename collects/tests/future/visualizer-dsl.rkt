@@ -6,99 +6,74 @@
                     [rectangle pict-rectangle]
                     [circle pict-circle]))
 
-(define (make-up-vregion)
-  (viewable-region 0 0 (random 400) (random 400)))
+(define (make-up-rect)
+  (rect 0 0 (random 400) (random 400)))
 
-(define (views-have-bounds? root-view)
+(define (elements-have-bounds? root-elem)
   (cond 
-    [(not (view-bounds root-view)) #f]
+    [(not (_element-bounds root-elem)) #f]
     [else 
-     (for/and ([child (in-list (view-children root-view))])
-       (views-have-bounds? child))]))
+     (for/and ([child (in-list (_node-children root-elem))])
+       (elements-have-bounds? child))]))
 
-(define (nodes-have-views? view)
-  (for/and ([nd (in-list (view-nodes view))])
-    (view? (node-view nd))))
-
-(define (default-view 
-          name
-          #:nodes nodes 
-          #:out-edges out-edges 
-          #:layout layout)
-  (define-view name 
-              #:nodes nodes
-              #:out-edges out-edges
-              #:node-view (circle #:diameter 30
-                                  #:back-color "red")
-              #:edge-view (edge-line)
-              #:layout layout))
-
-(define v1-builder (define-view 'view1
-                       #:layout (λ (view vregion)
-                                  (blank 400 400))))
+(define v1-builder (view '()
+                         (layout tree)))
 
 (check-true (procedure? v1-builder))
-(check-equal? (procedure-arity v1-builder) 2)
-(define v1 (v1-builder #f #f))
-(check-true (view? v1))
-(check-equal? (view-name v1) 'view1)
-(check-true (null? (view-nodes v1)))
-(check-true (null? (view-interactions v1)))
+(check-equal? (procedure-arity v1-builder) 1)
+(define v1 (v1-builder #f))
+(check-true (_view? v1))
+(check-true (_node? v1))
+(check-true (null? (_node-children v1)))
 
-(define v2-builder (define-view 'view2
-                               #:nodes (λ (data) '(1 2 3 4 5))
-                               #:out-edges (λ (n)
-                                             (case n
-                                               [(1) '(2 3)]
-                                               [else '()]))
-                               #:node-view (circle #:diameter 20
-                                                   #:back-color "red")
-                               #:edge-view (edge-line)
-                               #:layout (tree #:margin 10)))
+(define v2-builder (view 
+                    (nodes '(1 2 3 4 5)
+                           #:shape (circle #:diameter 20 #:back-color "red"))
+                    #:edges (edges-from (λ (d) 
+                                          (case d 
+                                            [(1) '(2 3)]
+                                            [else '()])) 
+                                        #:shape (line))
+                    (layout (tree #:margin 10))))
 (check-true (procedure? v2-builder))
-(check-equal? (procedure-arity v2-builder) 2)
-(define v2 (v2-builder #f #f))
-(check-equal? (view-name v2) 'view2)
-(check-equal? (length (view-nodes v2)) 5)
-(check-equal? (length (filter (λ (nd) (not (null? (node-out-edges nd)))) 
-                              (view-nodes v2)))
-              1)
-(check-true (procedure? (view-layout-drawer v2)))
-(define vr (make-up-vregion))
-(check-true (pict? ((view-layout-drawer v2) vr)))
-(check-true (rect? (view-bounds v2)))
-(check-equal? (rect-w (view-bounds v2)) (viewable-region-width vr))
-(check-equal? (rect-h (view-bounds v2)) (viewable-region-height vr))
-(check-equal? (length (view-children v2)) 7) ;5 node subviews + 2 edge subviews
-(check-true (views-have-bounds? v2))
-(check-true (nodes-have-views? v2))
+(check-equal? (procedure-arity v2-builder) 1)
+(define v2 (v2-builder #f))
+(check-equal? (length (_node-children v2)) 5)
+(check-equal? (length (filter (λ (nd) (or (not (_node-from-edges nd)) (null? (_node-from-edges nd)))) 
+                              (_node-children v2)))
+              4)
+
+(define vr (make-up-rect))
+(check-true (pict? (draw v2 vr)))
+(check-true (rect? (_element-bounds v2)))
+(check-equal? (rect-w (_element-bounds v2)) (rect-w vr))
+(check-equal? (rect-h (_element-bounds v2)) (rect-h vr))
+(check-equal? (length (_node-children v2)) 7) ;5 node subviews + 2 edge subviews
+(check-true (elements-have-bounds? v2))
 
 ;Need to test for cycle detection when using tree
 ;layout, but arbitrary graphs are otherwise okay
-(define cycle-builder (define-view 'with-cycles
-                                  #:nodes (λ (data) '(1 2 3 4 5))
-                                  #:out-edges (λ (x)
-                                                (case x 
-                                                  [(1) '(2)]
-                                                  [(2) '(1)] 
-                                                  [else '()]))
-                                  #:node-view (circle #:diameter 20
-                                                      #:back-color "black")
-                                  #:edge-view (edge-line)
-                                  #:layout (tree)))
+(define cycle-builder (view 
+                       (nodes '(1 2 3 4 5))
+                       #:edges (edges-from (λ (x)
+                                             (case x 
+                                               [(1) '(2)]
+                                               [(2) '(1)]
+                                               [else '()])))
+                       (layout tree)))
 
 ;Try creating a view with nodes but no node view
-(define v3-builder (define-view 'view3
-                               #:nodes (λ (data) '(1 2 3 4 5))
-                               #:out-edges (λ (x)
-                                             (case x 
-                                               [(4) '(2 3)]
-                                               [(2) '(1)]
-                                               [else '()]))
-                               #:edge-view (edge-line)
-                               #:layout (tree)))
+(define v3-builder (view 
+                    (nodes '(1 2 3 4 5))
+                    #:edges (edges-from (λ (x)
+                                          (case x 
+                                            [(4) '(2 3)]
+                                            [(2) '(1)]
+                                            [else '()])))
+                    (layout tree)))
 (check-not-exn (λ () (v3-builder #f #f)))
 
+#|
 ;Simple interaction view for testing
 (define v4-builder 
   (define-view 'view4
@@ -175,6 +150,7 @@
                     #:layout (stack #:orientation 'horizontal)
                     ))
    (myView #f 10)))
+|#
 
 
 

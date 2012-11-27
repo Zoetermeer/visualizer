@@ -36,7 +36,9 @@
                 #:opacity [opacity 1])
   (λ (data)
     (_circle data 
-             '()
+             '() ;children
+             '() ;from-edges
+             '() ;to-edges
              back-color 
              fore-color 
              stroke-width 
@@ -53,7 +55,9 @@
                    #:opacity [opacity 1])
   (λ (data)
     (_rectangle data
-                '()
+                '() ;children
+                '() ;from-edges
+                '() ;to-edges
                 back-color
                 fore-color
                 stroke-width
@@ -62,8 +66,10 @@
                 width
                 height)))
 
-(define (line from to)
-  (_line from to))
+(define (line #:color [color "black"]
+              #:opacity [opacity 1.0])
+  (λ (from to)
+    (_line from to color opacity)))
 
 ;Tree layout
 ;;set-tree-layout! : _node uint uint uint uint rect -> (values uint uint)
@@ -129,6 +135,7 @@
 ;Is just the node argument enough?
 (define (tree #:margin [margin 10])
   (λ (node bounds) 
+    (set-_element-bounds! node bounds)
     (define data (_node-data node))
     (define nodes (_node-children node))
     (define roots (filter (λ (n) (or (not (_node-to-edges n))
@@ -164,8 +171,8 @@
                   [pict #:mutable #:auto])) ;pict (cache for performance)
 (struct _node _element (data
                         [children #:mutable]
-                        [from-edges #:mutable #:auto]
-                        [to-edges #:mutable #:auto]
+                        [from-edges #:mutable]
+                        [to-edges #:mutable]
                         [interactions #:mutable #:auto]
                         [bounds #:mutable #:auto]) #:transparent) ;rect
 (struct _edge _element (from to))
@@ -186,7 +193,6 @@
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
 (define (draw elem [bounds (rect 0 0 1000 1000)]) 
-  (printf "draw ~a with bounds: ~a\n" elem (_element-bounds elem))
   (cond 
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
@@ -217,7 +223,10 @@
                #:shape [shape (rectangle #:width 50 #:height 50)]
                #:foreach [foreach #f])
   (λ (data)
-    (define rootvs (get-node-values data))
+    (define rootvs 
+      (cond 
+        [(procedure? get-node-values) (get-node-values data)]
+        [else get-node-values]))
     (define roots (map shape rootvs)) ;'shape' is a function taking a data arg
     (when foreach 
       (for ([v (in-list rootvs)]
@@ -257,8 +266,12 @@
               [layout tree] 
               . interactions)
   (λ (data)
-    (define vw (_view data '() scale-to-canvas? layout))
-    (define root-nodes (nds data))
+    (define vw (_view data '() '() '() scale-to-canvas? layout))
+    ;Nodes
+    (define root-nodes ;listof _node
+      (cond 
+        [(list? nds) ((nodes (λ (d) nds)) data)]
+        [else (nds data)]))
     (for ([n (in-list root-nodes)])
       (set-_element-parent! n vw))
     (set-_node-children! vw root-nodes)

@@ -7,7 +7,7 @@
          (only-in slideshow/pict pict?))
 (provide (contract-out 
           [view (->*
-                 ((any/c . -> . (listof _node?)))
+                 ((or/c (any/c . -> . (listof _node?)) (listof any/c)))
                  (#:edges (_node? (listof _node?) . -> . (listof _edge?))
                   #:scale-to-bounds boolean? 
                   (_node? rect? . -> . void?))
