@@ -1,16 +1,20 @@
 #lang racket/base
 (require (only-in racket/match match-define)
          (only-in racket/function curry identity)
-         (only-in slideshow/pict filled-rectangle colorize))
-(provide node-width
-         node-height
-         node-origin-x
-         node-origin-y
-         node-x-extent
-         node-y-extent
+         (rename-in slideshow/pict
+                    [circle pict-circle]
+                    [rectangle pict-rectangle]))
+(provide element-width
+         element-height
+         element-origin-x
+         element-origin-y
+         element-x-extent
+         element-y-extent
          control-point
+         (struct-out _element)
          (struct-out _node)
          (struct-out _view)
+         (struct-out _edge)
          (struct-out _interaction)
          (struct-out rect)
          view
@@ -62,17 +66,102 @@
   (_line from to))
 
 ;Tree layout
+;;set-tree-layout! : _node uint uint uint uint rect -> (values uint uint)
+(define (set-tree-layout! parent margin x y mx my bounds)
+  ;Draw the node to get its dimensions, then cache
+  (define pct (draw parent bounds))
+  (set-_element-pict! parent pct)
+  (define w (pict-width pct))
+  (define h (pict-height pct))
+  (cond 
+    [(or (not (_node-from-edges parent))
+         (null? (_node-from-edges parent)))
+     (define nx (+ margin x))
+     (define ny (+ margin y))
+     (define xe (+ nx w))
+     (define ye (+ ny h))
+     (set-_element-bounds! parent (rect nx ny w h))
+     (values (max mx xe)
+             (max my ye))]
+    [else
+     (define child-y (+ y h))
+     (define parenty (+ y margin))
+     (define first-child (_edge-to (car (_node-from-edges parent))))
+     (cond 
+       [(= 1 (length (_node-from-edges parent))) ;Align parent and child vertically
+        (define-values (cmx cmy) (set-tree-layout! first-child
+                                                   margin
+                                                   x
+                                                   (+ parenty h)
+                                                   mx 
+                                                   my
+                                                   bounds))
+        (define-values (cx _) (control-point first-child 'center 'top))
+        (define nx (max (- cx (/ w 2)) (+ x margin)))
+        (define ny (+ margin y))
+        (define xe (+ nx w))
+        (define ye (+ ny h))
+        (set-_element-bounds! parent (rect nx ny w h))
+        (values (max cmx xe)
+                (max cmy ye))]
+       [else
+        (define-values (cmx cmy)
+          (for/fold ([xacc x] [yacc y]) ([child (in-list (map _edge-to (_node-from-edges parent)))])
+            (define-values (cmx cmy) (set-tree-layout! child
+                                                       margin
+                                                       xacc
+                                                       (+ parenty h)
+                                                       mx
+                                                       my
+                                                       bounds))
+            (values (max xacc cmx) (max yacc cmy))))
+        (define xmin (element-origin-x first-child))
+        (define xmax cmx)
+        (define nx (- (+ xmin (/ (- xmax xmin) 2))
+                      (/ w 2)))
+        (define ny (+ margin y))
+        (define xe (max (+ nx w) cmx))
+        (define ye (max (+ ny h) cmy))
+        (set-_element-bounds! parent (rect nx ny w h))
+        (values (max xe mx)
+                (max ye my))])]))
+
 ;Is just the node argument enough?
 (define (tree #:margin [margin 10])
   (λ (node bounds) 
-    0))
+    (define data (_node-data node))
+    (define nodes (_node-children node))
+    (define roots (filter (λ (n) (or (not (_node-to-edges n))
+                                     (null? (_node-to-edges n)))) nodes))
+    (when (null? roots)
+      (error 'tree "expected a tree or collection of trees but got ~a in: ~a." roots node))
+    (let loop ([maxx (rect-x bounds)] 
+               [maxy (rect-y bounds)]
+               [rts roots])
+      (cond 
+        [(null? rts) (void)]
+        [else
+         (define r (car rts))
+         (define-values (mx my) 
+           (set-tree-layout! r 
+                             margin
+                             maxx
+                             (rect-y bounds)
+                             maxx 
+                             maxy
+                             bounds))
+         (loop (max maxx mx)
+               (max maxy my)
+               (cdr rts))]))))
 
 (define (stack #:orientation [orientation 'horizontal] #:margin [margin 10])
   (λ (node bounds)
     0))
 
 ;Node is the supertype for all visual elements (primitives or compounds/views)
-(struct _element ([parent #:mutable #:auto] [bounds #:mutable #:auto]))
+(struct _element ([parent #:mutable #:auto] ;(or _element #f)
+                  [bounds #:mutable #:auto] ;rect
+                  [pict #:mutable #:auto])) ;pict (cache for performance)
 (struct _node _element (data
                         [children #:mutable]
                         [from-edges #:mutable #:auto]
@@ -96,10 +185,32 @@
 
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
-(define (draw elem bounds) 
-  (colorize (filled-rectangle (rect-w bounds)
-                              (rect-h bounds))
-            "red"))
+(define (draw elem [bounds (rect 0 0 1000 1000)]) 
+  (printf "draw ~a with bounds: ~a\n" elem (_element-bounds elem))
+  (cond 
+    [(_element-pict elem) ;If the element has a cached pict, use it
+     (_element-pict elem)]
+    [(_circle? elem)
+     (colorize (disk (_circle-diam elem)) (_primnode-back-color elem))]
+    [(_rectangle? elem)
+     (colorize (filled-rectangle (_rectangle-width elem)
+                                 (_rectangle-height elem))
+               (_primnode-back-color elem))]
+    [(_label? elem)
+     (text (_label-text elem))]
+    [(_line? elem)
+     (blank 10 10)] ;TODO: Fix!  How do we get 'dx' and 'dy'?
+    [(_view? elem) 
+     ;Calculate layout (can we avoid doing this on each draw?)
+     ;Draw each child
+     ((_view-layout elem) elem bounds)
+     (define p (blank (rect-w bounds) (rect-h bounds)))
+     (for/fold ([p p]) ([c (in-list (_node-children elem))])
+       (define b (_element-bounds c))
+       (pin-over p
+                 (element-origin-x c)
+                 (element-origin-y c)
+                 (draw c (_element-bounds c))))]))
 
 
 (define (nodes get-node-values
@@ -125,11 +236,12 @@
   (λ (from-node all-nodes)
     (define tos (get-to-values (_node-data from-node)))
     (define to-nodes (find-nodes tos all-nodes))
-    (for ([tn (in-list to-nodes)])
+    (for/list ([tn (in-list to-nodes)])
       (define e (shape from-node tn))
       (set-_element-parent! e (_element-parent from-node))
       (set-_node-to-edges! tn (cons e (_node-to-edges tn)))
-      (set-_node-from-edges! from-node (cons e (_node-from-edges from-node))))))
+      (set-_node-from-edges! from-node (cons e (_node-from-edges from-node)))
+      e)))
 
 ;Apply lt if a function with 0 arity, 
 ;so we can say (layout tree) instead 
@@ -139,28 +251,21 @@
     [(zero? (procedure-arity lt)) (lt)]
     [else lt]))
 
-#|
-(view 
-  (nodes ...)
-  (edges-from ...)
-  (edges-to ...)
-  (layout ...))
-|#
-(define (view nds 
-              [egto #f] 
-              [egfrom #f] 
-              [scale-to-canvas? #f]
+(define (view nds  
+              #:edges [edge-getter #f] 
+              #:scale-to-bounds [scale-to-canvas? #f]
               [layout tree] 
               . interactions)
   (λ (data)
+    (define vw (_view data '() scale-to-canvas? layout))
     (define root-nodes (nds data))
-    (when egto
+    (for ([n (in-list root-nodes)])
+      (set-_element-parent! n vw))
+    (set-_node-children! vw root-nodes)
+    (when edge-getter
       (for ([n (in-list root-nodes)])
-        (egto n root-nodes)))
-    (when egfrom
-      (for ([n (in-list root-nodes)])
-        (egfrom n root-nodes)))
-    (_view scale-to-canvas? layout)))
+        (edge-getter n root-nodes)))
+    vw))
 
 ;Find all nodes n (from nodes) for which (node-data n) is equal 
 ;to some element of vs.
@@ -176,35 +281,35 @@
 (struct hover _interaction (shape))
 (struct highlight-when-over _interaction ())
 
-(define (node-origin node)
-  (values (rect-x (_node-bounds node))
-          (rect-y (_node-bounds node))))
+(define (element-origin element)
+  (values (rect-x (_element-bounds element))
+          (rect-y (_element-bounds element))))
 
-(define (node-origin-x node)
-  (rect-x (_node-bounds node)))
+(define (element-origin-x element)
+  (rect-x (_element-bounds element)))
 
-(define (node-origin-y node)
-  (rect-y (_node-bounds node)))
+(define (element-origin-y element)
+  (rect-y (_element-bounds element)))
 
-(define (node-x-extent node)
-  (+ (node-origin-x node)
-     (node-width node)))
+(define (element-x-extent element)
+  (+ (element-origin-x element)
+     (element-width element)))
 
-(define (node-y-extent node)
-  (+ (node-origin-y node)
-     (node-height node)))
+(define (element-y-extent element)
+  (+ (element-origin-y element)
+     (element-height element)))
 
-(define (node-width node) 
-  (rect-w (_node-bounds node)))
+(define (element-width element) 
+  (rect-w (_element-bounds element)))
 
-(define (node-height node) 
-  (rect-h (_node-bounds node)))
+(define (element-height element) 
+  (rect-h (_element-bounds element)))
 
-;;control-point : _node symbol symbol -> (values uint uint)
-(define (control-point node horiz vert)
-  (unless (_node-bounds node)
-    (error 'control-point "bounds undefined for node ~a" node))
-  (match-define (rect nx ny nw nh) (_node-bounds node))
+;;control-point : _element symbol symbol -> (values uint uint)
+(define (control-point element horiz vert)
+  (unless (_element-bounds element)
+    (error 'control-point "bounds undefined for element ~a" element))
+  (match-define (rect nx ny nw nh) (_element-bounds element))
   (values (case horiz
             [(left) nx]
             [(center) (+ nx (/ nw 2))]
@@ -215,4 +320,4 @@
             [(bottom) (+ ny nh)])))
 
 (define (auto margin)
-  0)
+  50)

@@ -8,15 +8,19 @@
 (provide (contract-out 
           [view (->*
                  ((any/c . -> . (listof _node?)))
-                 ((any/c . -> . (listof any/c))
-                  (any/c . -> . (listof any/c))
-                  boolean? 
-                  (_node? . -> . void?))
+                 (#:edges (_node? (listof _node?) . -> . (listof _edge?))
+                  #:scale-to-bounds boolean? 
+                  (_node? rect? . -> . void?))
                  #:rest (listof _interaction?)
-                 (any/c . -> . pict?))]
+                 (any/c . -> . _view?))]
           [visualize (->* ()
                           (#:width exact-nonnegative-integer?
                            #:height exact-nonnegative-integer?)
                           #:rest (listof _view?)
-                          void?)])
-         (except-out (all-from-out "private/fizz-core.rkt") view))
+                          void?)]
+          [nodes (->* 
+                  ((or/c (listof any/c) (any/c . -> . (listof any/c))))
+                  (#:shape (any/c . -> . _element?)
+                   #:foreach (or/c #f (any/c . -> . (listof any/c)))) 
+                  (any/c . -> . (listof _node?)))])
+         (except-out (all-from-out "private/fizz-core.rkt") view nodes))
