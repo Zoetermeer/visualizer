@@ -254,10 +254,10 @@
     roots))
 
 (define (edges-from get-to-values
-                    #:shape [shape _line])
+                    #:shape [shape (line)])
   (λ (from-node all-nodes)
     (define tos (get-to-values (_node-data from-node)))
-    (define to-nodes (find-nodes tos all-nodes))
+    (define to-nodes (find-nodes (if (void? tos) '() tos) all-nodes))
     (for/list ([tn (in-list to-nodes)])
       (define e (shape from-node tn))
       (set-_element-parent! e (_element-parent from-node))
