@@ -73,16 +73,13 @@
 
 ;Tree layout
 ;;set-tree-layout! : _node uint uint uint uint rect -> (values uint uint)
-(define (set-tree-layout! parent margin x y mx my bounds)
+(define (set-tree-layout! parent margin x y mx my)
   (define (set-edge-bounds! edge parent child)
     (define-values (pcx pcy) (control-point parent 'center 'center))
     (define-values (ccx ccy) (control-point child 'center 'center))
     (set-_element-bounds! edge (rect (min pcx ccx) (min pcy ccy) (abs (- pcx ccx)) (abs (- pcy ccy)))))    
-  ;Draw the node to get its dimensions, then cache
-  (define pct (draw parent bounds))
-  (set-_element-pict! parent pct)
-  (define w (pict-width pct))
-  (define h (pict-height pct))
+  ;Get the node's dimensions
+  (define-values (w h) (get-size parent))
   (cond 
     [(or (not (_node-from-edges parent))
          (null? (_node-from-edges parent)))
@@ -105,8 +102,7 @@
                                                    x
                                                    (+ parenty h)
                                                    mx 
-                                                   my
-                                                   bounds))
+                                                   my))
         (define-values (cx _) (control-point first-child 'center 'top))
         (define nx (max (- cx (/ w 2)) (+ x margin)))
         (define ny (+ margin y))
@@ -125,8 +121,7 @@
                                                        xacc
                                                        (+ parenty h)
                                                        mx
-                                                       my
-                                                       bounds))
+                                                       my))
             (values (max xacc cmx) (max yacc cmy))))
         (define xmin (element-origin-x first-child))
         (define xmax cmx)
@@ -141,15 +136,14 @@
 
 ;Is just the node argument enough?
 (define (tree #:margin [margin 10])
-  (λ (node bounds) 
-    (set-_element-bounds! node bounds)
+  (λ (node) 
     (define data (_node-data node))
     (define nodes (_node-children node))
     (define roots (filter (λ (n) (and (_node? n) (null? (_node-to-edges n)))) nodes))
     (when (null? roots)
       (error 'tree "expected a tree or collection of trees but got ~a in: ~a." roots node))
-    (let loop ([maxx (rect-x bounds)] 
-               [maxy (rect-y bounds)]
+    (let loop ([maxx 0] 
+               [maxy 0]
                [rts roots])
       (cond 
         [(null? rts) (void)]
@@ -159,10 +153,9 @@
            (set-tree-layout! r 
                              margin
                              maxx
-                             (rect-y bounds)
+                             0
                              maxx 
-                             maxy
-                             bounds))
+                             maxy))
          (loop (max maxx mx)
                (max maxy my)
                (cdr rts))]))))
@@ -228,6 +221,7 @@
      (let loop ([maxx 0] [maxy 0] [children (_node-children elem)])
        (cond 
          [(null? children) (values maxx maxy)]
+         [(_edge? (car children)) (loop maxx maxy (cdr children))]
          [else 
           (define c (car children))
           (loop (max maxx (element-x-extent c))
@@ -238,16 +232,17 @@
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
 (define (draw elem [bounds #f]) 
+  (printf "drawing: ~a" (object-name elem))
   ;Translate the element's bounds into absolute coordinates
   (define mybounds (_element-bounds elem))
   (define parent (_element-parent elem))
-  (if parent
+  (if (and (not (_edge? elem)) parent)
     (set-_element-bounds! elem (rect (+ (element-origin-x parent) (rect-x mybounds))
                                 (+ (element-origin-y parent) (rect-y mybounds))
                                 (rect-w mybounds)
                                 (rect-h mybounds)))
     (set-_element-bounds! elem bounds))
-  (printf "draw: ~a with bounds: ~a\n" (object-name elem) (_element-bounds elem))
+  (printf " with bounds: ~a\n" (_element-bounds elem))
   (cond 
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
@@ -275,11 +270,12 @@
      ;Draw each child and overlay     
      (define p (blank w h))
      (for/fold ([p p]) ([c (in-list (_node-children elem))])
-       (define b (_element-bounds c))
-       (pin-over p
-                 (element-origin-x c)
-                 (element-origin-y c)
-                 (draw c)))]))
+       (if (not (_edge? c))
+           (pin-over p
+                     (element-origin-x c)
+                     (element-origin-y c)
+                     (draw c))
+           p))]))
 
 
 (define (nodes get-node-values
