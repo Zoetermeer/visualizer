@@ -177,7 +177,7 @@
         (define-values (cw ch) (get-size child))
         (set-_element-bounds! child (rect ∆x ∆y cw ch))
         (loop (+ ∆x cw margin)
-              (+ ∆y ch margin) 
+              ∆y 
               (cdr children))))))
 
 ;Node is the supertype for all visual elements (primitives or compounds/views)
@@ -247,6 +247,7 @@
                                 (rect-w mybounds)
                                 (rect-h mybounds)))
     (set-_element-bounds! elem bounds))
+  (printf "draw: ~a with bounds: ~a\n" (object-name elem) (_element-bounds elem))
   (cond 
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
@@ -274,12 +275,11 @@
      ;Draw each child and overlay     
      (define p (blank w h))
      (for/fold ([p p]) ([c (in-list (_node-children elem))])
-       (define cp (draw c))
        (define b (_element-bounds c))
        (pin-over p
                  (element-origin-x c)
                  (element-origin-y c)
-                 cp))]))
+                 (draw c)))]))
 
 
 (define (nodes get-node-values
