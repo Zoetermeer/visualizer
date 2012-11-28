@@ -74,7 +74,7 @@
 
 ;Tree layout
 ;;set-tree-layout! : _node uint uint uint uint rect -> (values uint uint)
-(define (set-tree-layout! parent margin x y mx my)
+(define (set-tree-layout! parent padding x y mx my)
   (define (set-edge-bounds! edge parent child)
     (define-values (pcx pcy) (control-point parent 'center 'center))
     (define-values (ccx ccy) (control-point child 'center 'center))
@@ -84,8 +84,8 @@
   (cond 
     [(or (not (_node-from-edges parent))
          (null? (_node-from-edges parent)))
-     (define nx (+ margin x))
-     (define ny (+ margin y))
+     (define nx (+ padding x))
+     (define ny (+ padding y))
      (define xe (+ nx w))
      (define ye (+ ny h))
      (set-_element-bounds! parent (rect nx ny w h))
@@ -93,20 +93,20 @@
              (max my ye))]
     [else
      (define child-y (+ y h))
-     (define parenty (+ y margin))
+     (define parenty (+ y padding))
      (define fc-edge (car (_node-from-edges parent)))
      (define first-child (_edge-to fc-edge))
      (cond 
        [(= 1 (length (_node-from-edges parent))) ;Align parent and child vertically
         (define-values (cmx cmy) (set-tree-layout! first-child
-                                                   margin
+                                                   padding
                                                    x
                                                    (+ parenty h)
                                                    mx 
                                                    my))
         (define-values (cx _) (control-point first-child 'center 'top))
-        (define nx (max (- cx (/ w 2)) (+ x margin)))
-        (define ny (+ margin y))
+        (define nx (max (- cx (/ w 2)) (+ x padding)))
+        (define ny (+ padding y))
         (define xe (+ nx w))
         (define ye (+ ny h))
         (set-_element-bounds! parent (rect nx ny w h))
@@ -118,7 +118,7 @@
           (for/fold ([xacc x] [yacc y]) ([cedge (in-list (_node-from-edges parent))])
             (define child (_edge-to cedge))
             (define-values (cmx cmy) (set-tree-layout! child
-                                                       margin
+                                                       padding
                                                        xacc
                                                        (+ parenty h)
                                                        mx
@@ -128,7 +128,7 @@
         (define xmax cmx)
         (define nx (- (+ xmin (/ (- xmax xmin) 2))
                       (/ w 2)))
-        (define ny (+ margin y))
+        (define ny (+ padding y))
         (define xe (max (+ nx w) cmx))
         (define ye (max (+ ny h) cmy))
         (set-_element-bounds! parent (rect nx ny w h))
@@ -136,7 +136,7 @@
                 (max ye my))])]))
 
 ;Is just the node argument enough?
-(define (tree #:margin [margin 10])
+(define (tree #:padding [padding 10])
   (λ (node) 
     (define data (_node-data node))
     (define nodes (_node-children node))
@@ -152,7 +152,7 @@
          (define r (car rts))
          (define-values (mx my) 
            (set-tree-layout! r 
-                             margin
+                             padding
                              maxx
                              0
                              maxx 
@@ -161,16 +161,16 @@
                (max maxy my)
                (cdr rts))]))))
 
-(define (stack #:orientation [orientation 'horizontal] #:margin [margin 10])
+(define (stack #:orientation [orientation 'horizontal] #:padding [padding 10])
   (λ (node)
-    (let loop ([∆x (+ 0 margin)]
-               [∆y (+ 0 margin)]
+    (let loop ([∆x (+ 0 padding)]
+               [∆y (+ 0 padding)]
                [children (_node-children node)])
       (unless (null? children)
         (define child (car children))
         (define-values (cw ch) (get-size child))
         (set-_element-bounds! child (rect ∆x ∆y cw ch))
-        (loop (+ ∆x cw margin)
+        (loop (+ ∆x cw padding)
               ∆y 
               (cdr children))))))
 
@@ -182,22 +182,22 @@
                         [children #:mutable]
                         [from-edges #:mutable]
                         [to-edges #:mutable]
+                        back-color
+                        fore-color
+                        stroke-width
+                        stroke-color
+                        opacity
                         [interactions #:mutable #:auto]
                         [bounds #:mutable #:auto]) #:transparent) ;rect
 (struct _edge _element (from to))
-(struct _primnode _node (back-color
-                          fore-color
-                          stroke-width
-                          stroke-color
-                          opacity) #:transparent)
 (struct _primedge _edge (color
                          opacity) #:transparent)
-(struct _circle _primnode (diam))
-(struct _rectangle _primnode (width height))
+(struct _circle _node (diam))
+(struct _rectangle _node (width height))
 (struct _line _primedge ())
-(struct _label _primnode (text))
+(struct _label _node (text))
   
-(struct _view _node (scale-to-canvas? layout))
+(struct _view _node (margin scale-to-canvas? layout))
 
 (define (get-size elem)
   (cond 
@@ -219,15 +219,18 @@
     [(_view? elem) 
      ;Calculate layout
      ((_view-layout elem) elem)
-     (let loop ([maxx 0] [maxy 0] [children (_node-children elem)])
-       (cond 
-         [(null? children) (values maxx maxy)]
-         [(_edge? (car children)) (loop maxx maxy (cdr children))]
-         [else 
-          (define c (car children))
-          (loop (max maxx (element-x-extent c))
-                (max maxy (element-y-extent c))
-                (cdr children))]))]))
+     (define-values (mx my) 
+       (let loop ([maxx 0] [maxy 0] [children (_node-children elem)])
+         (cond 
+           [(null? children) (values maxx maxy)]
+           [(_edge? (car children)) (loop maxx maxy (cdr children))]
+           [else 
+            (define c (car children))
+            (loop (max maxx (element-x-extent c))
+                  (max maxy (element-y-extent c))
+                  (cdr children))])))
+     (values (+ mx (* (_view-margin elem) 2))
+             (+ my (* (_view-margin elem) 2)))]))
 
 
 ;Need to update each element's bounds, including
@@ -248,11 +251,11 @@
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
     [(_circle? elem)
-     (colorize (disk (_circle-diam elem)) (_primnode-back-color elem))]
+     (colorize (disk (_circle-diam elem)) (_node-back-color elem))]
     [(_rectangle? elem)
      (colorize (filled-rectangle (_rectangle-width elem)
                                  (_rectangle-height elem))
-               (_primnode-back-color elem))]
+               (_node-back-color elem))]
     [(_label? elem)
      (text (_label-text elem))]
     [(_line? elem)
@@ -269,7 +272,17 @@
      ;get-size will calculate layout for us
      (define-values (w h) (get-size elem))
      ;Draw each child and overlay     
-     (define p (blank w h))
+     (define p 
+       (cond 
+         [(zero? (_node-stroke-width elem))
+          (colorize (filled-rectangle w h) (_node-back-color elem))]
+         [else 
+          (define sw (_node-stroke-width elem))
+          (define outer (colorize (filled-rectangle w h) (_node-stroke-color elem)))
+          (cc-superimpose outer 
+                          (colorize (filled-rectangle (- w (* sw 2))
+                                                      (- h (* sw 2))) 
+                                    (_node-back-color elem)))]))
      (define-values (edges nds) 
        (partition _edge? (_node-children elem)))
      (define ep (for/fold ([p p]) ([e (in-list edges)])
@@ -330,9 +343,24 @@
               #:edges [edge-getter #f] 
               #:scale-to-bounds [scale-to-canvas? #f]
               [layout (layout tree)] 
+              #:margin [margin 10]
+              #:back-color [back-color "white"]
+              #:fore-color [fore-color "black"]
+              #:stroke-width [stroke-width 0]
+              #:stroke-color [stroke-color "black"]
+              #:opacity [opacity 1.0]
               . interactions)
   (λ (data)
-    (define vw (_view data '() '() '() scale-to-canvas? layout))
+    (define vw (_view data 
+                      '() '() '() 
+                      back-color 
+                      fore-color 
+                      stroke-width 
+                      stroke-color 
+                      opacity
+                      margin
+                      scale-to-canvas? 
+                      layout))
     ;Nodes
     (define root-nodes ;listof _node
       (cond 
