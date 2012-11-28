@@ -214,8 +214,8 @@
      (define-values (fcx fcy) (control-point (_edge-from elem) 'center 'center))
      (define-values (tcx tcy) (control-point (_edge-to elem) 'center 'center))
      (set-_element-bounds! elem (rect fcx fcy (- fcx tcx) (- fcy tcy)))
-     (colorize (pip-line (- fcx fcy)
-                         (- tcx tcy)
+     (colorize (pip-line (- fcx tcx)
+                         (- tcy fcy)
                          0)
                (_primedge-color elem))]
     [(_view? elem) 
@@ -233,7 +233,7 @@
 
 
 (define (nodes get-node-values
-               #:shape [shape (rectangle #:width 50 #:height 50)]
+               #:shape [shape (rectangle #:width 20 #:height 20)]
                #:foreach [foreach #f])
   (λ (data)
     (define rootvs 
