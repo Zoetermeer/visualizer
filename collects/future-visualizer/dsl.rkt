@@ -10,7 +10,7 @@
                  ((or/c (any/c . -> . (listof _node?)) (listof any/c)))
                  (#:edges (_node? (listof _node?) . -> . (listof _edge?))
                   #:scale-to-bounds boolean? 
-                  (_node? rect? . -> . void?))
+                  (_node? . -> . void?))
                  #:rest (listof _interaction?)
                  (any/c . -> . _view?))]
           [visualize (->* ()

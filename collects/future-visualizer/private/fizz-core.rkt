@@ -168,8 +168,17 @@
                (cdr rts))]))))
 
 (define (stack #:orientation [orientation 'horizontal] #:margin [margin 10])
-  (λ (node bounds)
-    0))
+  (λ (node)
+    (let loop ([∆x (+ 0 margin)]
+               [∆y (+ 0 margin)]
+               [children (_node-children node)])
+      (unless (null? children)
+        (define child (car children))
+        (define-values (cw ch) (get-size child))
+        (set-_element-bounds! child (rect ∆x ∆y cw ch))
+        (loop (+ ∆x cw margin)
+              (+ ∆y ch margin) 
+              (cdr children))))))
 
 ;Node is the supertype for all visual elements (primitives or compounds/views)
 (struct _element ([parent #:mutable #:auto] ;(or _element #f)
@@ -196,9 +205,48 @@
   
 (struct _view _node (scale-to-canvas? layout))
 
+(define (get-size elem)
+  (cond 
+    [(_circle? elem) (values (_circle-diam elem) 
+                             (_circle-diam elem))]
+    [(_rectangle? elem) (values (_rectangle-width elem)
+                                (_rectangle-height elem))]
+    [(_label? elem) 
+     (define tp (text (_label-text elem)))
+     (values (pict-width tp)
+             (pict-height tp))]
+    [(_line? elem) 
+     (define f (_edge-from elem))
+     (define t (_edge-to elem))
+     (define-values (fcx fcy) (control-point f 'center 'center))
+     (define-values (tcx tcy) (control-point t 'center 'center))
+     (values (abs (- fcx tcx))
+             (abs (- fcy tcy)))]
+    [(_view? elem) 
+     ;Calculate layout
+     ((_view-layout elem) elem)
+     (let loop ([maxx 0] [maxy 0] [children (_node-children elem)])
+       (cond 
+         [(null? children) (values maxx maxy)]
+         [else 
+          (define c (car children))
+          (loop (max maxx (element-x-extent c))
+                (max maxy (element-y-extent c))
+                (cdr children))]))]))
+
+
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
-(define (draw elem [bounds (rect 0 0 1000 1000)]) 
+(define (draw elem [bounds #f]) 
+  ;Translate the element's bounds into absolute coordinates
+  (define mybounds (_element-bounds elem))
+  (define parent (_element-parent elem))
+  (if parent
+    (set-_element-bounds! elem (rect (+ (element-origin-x parent) (rect-x mybounds))
+                                (+ (element-origin-y parent) (rect-y mybounds))
+                                (rect-w mybounds)
+                                (rect-h mybounds)))
+    (set-_element-bounds! elem bounds))
   (cond 
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
@@ -220,11 +268,13 @@
                (_primedge-color elem))]
     [(_view? elem) 
      ;Calculate layout (can we avoid doing this on each draw?)
-     ((_view-layout elem) elem bounds)
-     ;Draw each child and overlay
-     (define p (blank (rect-w bounds) (rect-h bounds)))
+     ;((_view-layout elem) elem)
+     ;get-size will calculate layout for us
+     (define-values (w h) (get-size elem))
+     ;Draw each child and overlay     
+     (define p (blank w h))
      (for/fold ([p p]) ([c (in-list (_node-children elem))])
-       (define cp (draw c (_element-bounds c)))
+       (define cp (draw c))
        (define b (_element-bounds c))
        (pin-over p
                  (element-origin-x c)
@@ -276,7 +326,7 @@
 (define (view nds  
               #:edges [edge-getter #f] 
               #:scale-to-bounds [scale-to-canvas? #f]
-              [layout tree] 
+              [layout (layout tree)] 
               . interactions)
   (λ (data)
     (define vw (_view data '() '() '() scale-to-canvas? layout))
