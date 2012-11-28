@@ -12,6 +12,7 @@
 (define (elements-have-bounds? root-elem)
   (cond 
     [(not (_element-bounds root-elem)) #f]
+    [(_edge? root-elem) #t]
     [else 
      (for/and ([child (in-list (_node-children root-elem))])
        (elements-have-bounds? child))]))
@@ -71,7 +72,7 @@
                                             [(2) '(1)]
                                             [else '()])))
                     (layout tree)))
-(check-not-exn (λ () (v3-builder #f #f)))
+(check-not-exn (λ () (v3-builder #f)))
 
 #|
 ;Simple interaction view for testing
