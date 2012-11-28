@@ -235,8 +235,7 @@
 
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
-(define (draw elem [bounds #f]) 
-  (printf "drawing: ~a" (object-name elem))
+(define (draw elem [bounds #f])
   ;Translate the element's bounds into absolute coordinates
   (define mybounds (_element-bounds elem))
   (define parent (_element-parent elem))
@@ -246,7 +245,6 @@
                                 (rect-w mybounds)
                                 (rect-h mybounds)))
     (set-_element-bounds! elem bounds))
-  (printf " with bounds: ~a\n" (_element-bounds elem))
   (cond 
     [(_element-pict elem) ;If the element has a cached pict, use it
      (_element-pict elem)]
