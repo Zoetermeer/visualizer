@@ -1,6 +1,7 @@
 #lang racket/base
 (require (only-in racket/match match-define)
          (only-in racket/function curry identity)
+         (only-in racket/list partition)
          (rename-in slideshow/pict
                     [circle pict-circle]
                     [rectangle pict-rectangle]))
@@ -269,13 +270,19 @@
      (define-values (w h) (get-size elem))
      ;Draw each child and overlay     
      (define p (blank w h))
-     (for/fold ([p p]) ([c (in-list (_node-children elem))])
-       (if (not (_edge? c))
-           (pin-over p
-                     (element-origin-x c)
-                     (element-origin-y c)
-                     (draw c))
-           p))]))
+     (define-values (edges nds) 
+       (partition _edge? (_node-children elem)))
+     (define ep (for/fold ([p p]) ([e (in-list edges)])
+                  (define-values (fcx fcy) (control-point (_edge-from e)  
+                                                          'center 
+                                                          'center))
+                  (pin-over p fcx fcy (draw e))))
+     (for/fold ([p ep]) ([c (in-list nds)])
+                  (pin-over p
+                            (element-origin-x c)
+                            (element-origin-y c)
+                            (draw c)))]))
+     
 
 
 (define (nodes get-node-values
