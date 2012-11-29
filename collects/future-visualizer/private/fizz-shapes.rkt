@@ -12,7 +12,7 @@
 (define (view nds 
               #:edges [edge-getter #f] 
               #:scale-to-bounds [scale-to-canvas? #f]
-              [layout tree] 
+              [layout (tree)] 
               #:margin [margin 10]
               #:back-color [back-color "white"]
               #:fore-color [fore-color "black"]

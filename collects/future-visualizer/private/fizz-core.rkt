@@ -101,9 +101,17 @@
     [(_circle? elem)
      (colorize (disk (_circle-diam elem)) (_node-back-color elem))]
     [(_rectangle? elem)
-     (colorize (filled-rectangle (_rectangle-width elem)
-                                 (_rectangle-height elem))
-               (_node-back-color elem))]
+     (cond 
+       [(zero? (_node-stroke-width elem))
+        (colorize (filled-rectangle (_rectangle-width elem)
+                                    (_rectangle-height elem)) 
+                  (_node-back-color elem))]
+       [else
+        (define inner (colorize (filled-rectangle (- (_rectangle-width elem) (* (_node-stroke-width elem) 2))
+                                                  (- (_rectangle-height elem) (* (_node-stroke-width elem) 2)))
+                                (_node-back-color elem)))
+        (cc-superimpose (colorize (filled-rectangle (_rectangle-width elem) (_rectangle-height elem)) (_node-stroke-color elem))
+                        inner)])]
     [(_label? elem)
      (text (_label-text elem))]
     [(_line? elem)
@@ -147,8 +155,6 @@
 (struct rect (x y w h) #:transparent)
   
 (struct _interaction ())
-(struct hover _interaction (shape))
-(struct highlight-when-over _interaction ())
 
 (define (element-origin element)
   (values (rect-x (_element-bounds element))
