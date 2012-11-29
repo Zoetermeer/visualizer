@@ -7,6 +7,8 @@
          edges-from
          circle
          rectangle
+         label
+         compound
          line)
 
 (define (view nds 
@@ -87,6 +89,24 @@
       (set-_node-from-edges! from-node (cons e (_node-from-edges from-node)))
       e)))
 
+(define (compound #:back-color [back-color "blue"]
+                  #:fore-color [fore-color "white"]
+                  #:stroke-width [stroke-width 0]
+                  #:stroke-color [stroke-color "black"]
+                  #:opacity [opacity 1] 
+                  . shapes)
+  (λ (data) 
+    (define shps (map (λ (s) (s data)) shapes))
+    (_compound data 
+               shps ;children
+               '() ;from-edges
+               '() ;to-edges
+               back-color 
+               fore-color 
+               stroke-width 
+               stroke-color
+               opacity)))
+
 (define (circle #:diameter [diameter (auto 10)]
                 #:back-color [back-color "blue"]
                 #:fore-color [fore-color "white"]
@@ -124,6 +144,24 @@
                 opacity
                 width
                 height)))
+
+(define (label txt
+               #:back-color [back-color "white"]
+               #:fore-color [fore-color "black"]
+               #:stroke-width [stroke-width 0]
+               #:stroke-color [stroke-color "black"]
+               #:opacity [opacity 1])
+  (λ (data) 
+    (_label data
+            '()
+            '()
+            '()
+            back-color
+            fore-color
+            stroke-width
+            stroke-color
+            opacity 
+            (format "~a" txt))))
 
 (define (line #:color [color "black"]
               #:opacity [opacity 1.0])

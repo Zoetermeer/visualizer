@@ -21,6 +21,8 @@
          (struct-out rect) ;Structure used for bounding-box data, etc.
          (struct-out _rectangle) ;The rectangle shape used for node viewing, etc.
          (struct-out _circle)
+         (struct-out _compound)
+         (struct-out _label)
          get-size
          draw)
 
@@ -44,6 +46,7 @@
                          opacity) #:transparent)
 (struct _circle _node (diam))
 (struct _rectangle _node (width height))
+(struct _compound _node ())
 (struct _line _primedge ())
 (struct _label _node (text))
   
@@ -66,6 +69,17 @@
      (define-values (tcx tcy) (control-point t 'center 'center))
      (values (abs (- fcx tcx))
              (abs (- fcy tcy)))]
+    [(_compound? elem) 
+     (let loop ([mx 0] [my 0] [shapes (_node-children elem)])
+       (cond 
+         [(null? shapes) (values mx my)]
+         [else 
+          (define shp (car shapes))
+          (define-values (sw sh) (get-size shp))
+          (set-_element-bounds! shp (rect 0 0 sw sh))
+          (loop (max sw mx)
+                (max sh my)
+                (cdr shapes))]))]
     [(_view? elem) 
      ;Calculate layout
      ((_view-layout elem) elem)
@@ -81,7 +95,6 @@
                   (cdr children))])))
      (values (+ mx (* (_view-margin elem) 2))
              (+ my (* (_view-margin elem) 2)))]))
-
 
 ;Need to update each element's bounds, including
 ;the root (which will just be the 'bounds' argument).
@@ -113,16 +126,16 @@
         (cc-superimpose (colorize (filled-rectangle (_rectangle-width elem) (_rectangle-height elem)) (_node-stroke-color elem))
                         inner)])]
     [(_label? elem)
-     (text (_label-text elem))]
+     (colorize (text (_label-text elem)) (_node-fore-color elem))]
     [(_line? elem)
      (define-values (fcx fcy) (control-point (_edge-from elem) 'center 'center))
-     (define-values (tcx tcy) (control-point (_edge-to elem) 'center 'center))
+     (define-values (tcx tcy) (control-point (_edge-to elem) 'center 'top))
      (set-_element-bounds! elem (rect fcx fcy (- fcx tcx) (- fcy tcy)))
      (colorize (pip-line (- fcx tcx)
                          (- tcy fcy)
                          0)
                (_primedge-color elem))]
-    [(_view? elem) 
+    [(or (_compound? elem) (_view? elem)) 
      ;Calculate layout (can we avoid doing this on each draw?)
      ;((_view-layout elem) elem)
      ;get-size will calculate layout for us
