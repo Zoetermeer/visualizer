@@ -4,6 +4,9 @@
          (only-in racket/class is-a?/c)
          (only-in racket/draw color%)
          "private/fizz-core.rkt" 
+         "private/fizz-shapes.rkt"
+         "private/fizz-layout.rkt"
+         "private/fizz-helpers.rkt"
          "private/fizz-gui.rkt"
          "private/display.rkt"
          (only-in slideshow/pict pict?))
@@ -29,4 +32,6 @@
                   (#:shape (any/c . -> . _element?)
                    #:foreach (or/c #f (any/c . -> . (listof any/c)))) 
                   (any/c . -> . (listof _node?)))])
-         (except-out (all-from-out "private/fizz-core.rkt") view nodes))
+         (except-out (all-from-out "private/fizz-shapes.rkt") view nodes)
+         (all-from-out "private/fizz-helpers.rkt")
+         (all-from-out "private/fizz-layout.rkt"))

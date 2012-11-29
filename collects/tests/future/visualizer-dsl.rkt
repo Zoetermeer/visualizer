@@ -2,6 +2,7 @@
 (require rackunit
          future-visualizer/dsl
          future-visualizer/private/display
+         future-visualizer/private/fizz-core
          (rename-in slideshow/pict
                     [rectangle pict-rectangle]
                     [circle pict-circle]))
@@ -35,7 +36,7 @@
                                             [(1) '(2 3)]
                                             [else '()])) 
                                         #:shape (line))
-                    (layout (tree #:margin 10))))
+                    (layout (tree #:padding 10))))
 (check-true (procedure? v2-builder))
 (check-equal? (procedure-arity v2-builder) 1)
 (define v2 (v2-builder #f))
@@ -73,6 +74,7 @@
                                             [else '()])))
                     (layout tree)))
 (check-not-exn (λ () (v3-builder #f)))
+
 
 #|
 ;Simple interaction view for testing
