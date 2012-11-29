@@ -89,8 +89,8 @@
       (set-_node-from-edges! from-node (cons e (_node-from-edges from-node)))
       e)))
 
-(define (compound #:back-color [back-color "blue"]
-                  #:fore-color [fore-color "white"]
+(define (compound #:back-color [back-color "white"]
+                  #:fore-color [fore-color "black"]
                   #:stroke-width [stroke-width 0]
                   #:stroke-color [stroke-color "black"]
                   #:opacity [opacity 1] 
