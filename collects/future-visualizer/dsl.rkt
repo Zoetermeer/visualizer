@@ -6,6 +6,7 @@
          "private/fizz-core.rkt" 
          "private/fizz-shapes.rkt"
          "private/fizz-layout.rkt"
+         "private/fizz-interactions.rkt"
          "private/fizz-helpers.rkt"
          "private/fizz-gui.rkt"
          "private/display.rkt"
